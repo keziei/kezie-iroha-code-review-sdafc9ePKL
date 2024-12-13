@@ -3,6 +3,10 @@
 
 Welcome to my public GitHub repository, showcasing my experience and expertise in database administration, automation, and scripting. Below is an overview of the projects included, their purposes, and how they demonstrate my skills.
 
+**If you can see this repository, I am currently looking for new job opportunities as a Database Engineer, DBRE, or SRE.** 
+
+Please feel free to reach out to me on LinkedIn: [https://www.linkedin.com/in/kezie-i] 
+
 ---
 
 ## Repository Structure
@@ -63,13 +67,6 @@ This directory includes Bash scripts developed for automating various database-r
 
 ## Contributions
 This repository is a demonstration of my personal expertise and is not actively maintained for contributions. For inquiries, please contact me directly.
-
----
-
-## Additional Note
-**If you can see this repository, I am currently looking for new job opportunities as a Database Engineer, DBRE, or SRE.** 
-
-Please feel free to reach out to me on LinkedIn: [https://www.linkedin.com/in/kezie-i] 
 
 ---
 
