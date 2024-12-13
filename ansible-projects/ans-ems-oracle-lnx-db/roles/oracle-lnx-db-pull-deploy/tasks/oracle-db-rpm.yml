@@ -1,0 +1,49 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Install Oracle DB  Pre-requisite
+# Note - Only Oracle versions >=19c are certified on RHEL 8
+# See - https://confluence.kiroha.com/display/ED/Oracle+Database-db+OS+Certification+-+All+Platforms
+---
+- name: install rhel8 rpms
+  become: yes
+  package:
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ rhel8_oracle_db_client_rpms }}"
+  register: rpm8_inst
+  when:
+    - ansible_facts['distribution'] == "RedHat"
+    - ansible_facts['distribution_major_version'] == "8"
+
+- name: install rhel7 rpms
+  become: yes
+  package:
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ rhel7_oracle_db_client_rpms }}"
+  register: rpm7_inst
+  when:
+    - ansible_facts['distribution'] == "RedHat"
+    - ansible_facts['distribution_major_version'] == "7"
+
+- name: install rhel6 rpms
+  become: yes
+  package:
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ rhel6_oracle_db_client_rpms }}"
+  register: rpm6_inst
+  when:
+    - ansible_facts['distribution'] == "RedHat"
+    - ansible_facts['distribution_major_version'] == "6"
+
+- name: install rhel5 rpms
+  become: yes
+  package:
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ rhel5_oracle_db_client_rpms }}"
+  register: rpm5_inst
+  when:
+    - ansible_facts['distribution'] == "RedHat"
+    - ansible_facts['distribution_major_version'] == "5"

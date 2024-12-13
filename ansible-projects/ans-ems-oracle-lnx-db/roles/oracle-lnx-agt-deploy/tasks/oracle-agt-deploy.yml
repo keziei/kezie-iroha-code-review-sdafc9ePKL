@@ -1,0 +1,91 @@
+# Author: Kezie Iroha
+# oracle-lnx-agt-deploy
+# Deploy EM Agent Software
+---
+  - name: "Create Directory {{ agt_inst_dir.install_dir }}"
+    file:
+      path: "{{ agt_inst_dir.install_dir }}"
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"       
+
+  - name: "Create Directory {{ agt_inst_dir.swloc_dir }}"
+    file:
+      path: "{{ agt_inst_dir.swloc_dir }}"
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"         
+
+  - name: "Create Directory {{ agt_inst_dir.em_dir }}"
+    file:
+      path: "{{ agt_inst_dir.em_dir }}"
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"      
+      
+  - name: Create EM13c Agent Deploy Script
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ agt_inst_dir.swloc_dir }}/deploy_agent.sh"
+      src: deploy_agent.sh.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - stat:
+      path: "{{ agt_inst_dir.install_dir }}/agent_inst/bin/emctl"
+    register: agtfile_emctl    
+  - debug:
+      msg: "Commencing EM13c configuration. Estimate time: 15 minutes"
+  - name: "Fetching, Installing and Patching Oracle EM13c Agent Software to {{ agt_inst_dir.install_dir }}"
+    become_user: "{{ oracle_owner }}"
+    shell: 
+      cmd: >
+        {{ agt_inst_dir.swloc_dir }}/deploy_agent.sh 
+    args:
+      executable: /bin/sh           
+    register: agt_inst
+    when: agtfile_emctl.stat.exists == false
+    ignore_errors: yes
+
+  - name: "EM13c Agent Status"
+    become_user: "{{ oracle_owner }}"
+    shell: 
+      cmd: >
+        {{ agt_inst_dir.install_dir }}/agent_inst/bin/emctl status agent
+    args:
+      executable: /bin/sh
+    register: agt_stat 
+    ignore_errors: yes
+  - debug:
+      msg: "{{ agt_stat.stdout_lines }}"
+    ignore_errors: yes
+
+  - name: Create EM13c Agent Root Script
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ agt_inst_dir.swloc_dir }}/deploy_agent_root.sh"
+      src: deploy_agent_root.sh.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - stat:
+      path: "{{ agt_inst_dir.swloc_dir }}/deploy_agent_root.sh"
+    register: agtroot_file  
+  - name: "Running EM13c Agent Root Script"
+    shell: 
+      cmd: >
+        {{ agt_inst_dir.swloc_dir }}/deploy_agent_root.sh
+    args:
+      executable: /bin/sh           
+    register: agtroot_inst
+    when: agtroot_file.stat.exists == true
+    ignore_errors: yes          

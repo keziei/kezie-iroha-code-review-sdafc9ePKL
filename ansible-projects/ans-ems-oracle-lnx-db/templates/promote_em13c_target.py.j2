@@ -1,0 +1,93 @@
+# Promote EM Targets 
+
+ from emcli.exception import VerbExecutionError
+ import sys
+  
+ alltargets=False
+ targetparms=0
+ uname='sysman'
+ pword='{{ snmp_pw }}'
+ url=''
+ monitor_pw=''
+ 
+ def helpUsage():
+    print 'Usage: promote_discovered_dbs.py [-help]'   
+    print '[-all] Add all discovered Single Instance DBs'   
+    print '[-targets <target1:target2:...] Add only targets listed'   
+    sys.exit()
+    
+ for i in range(len(sys.argv)):
+    if sys.argv[i] in ("-help"):
+            helpUsage()   
+    elif sys.argv[i] in ("-targets"):
+            if i+1 < len(sys.argv):
+                    targetparms = sys.argv[i+1]
+    else:
+                    print 'Usage: promote_discovered_dbs.py [-help]'
+                    print '[-all] Add all discovered Single Instance DBs'
+                    print '[-targets <target1:target2:...] Add only targets listed'
+                    sys.exit()
+    elif sys.argv[i] in ("-url"):
+            if i+1 < len(sys.argv):
+                    url = sys.argv[i+1]
+    elif sys.argv[i] in ("-username"):
+            if i+1 < len(sys.argv):
+                    uname = sys.argv[i+1]
+    elif sys.argv[i] in ("-password"):      
+            if i+1 < len(sys.argv):         
+                    pword = sys.argv[i+1]            
+    elif sys.argv[i] in ("-monitor_pw"):      
+            if i+1 < len(sys.argv):          
+                    monitor_pw = sys.argv[i+1]            
+    elif sys.argv[i] in ("-all"):      
+                    alltargets = True         
+            
+ # Make sure user did not specify target list and all targets.
+ if alltargets<>0 and targetparms <>0:         
+    print 'Cannot specify target list and all switch'            
+    print 'Usage: promote_discovered_dbs.py -url <EM URL> -username <username> -password <password> -monitor_pw <password>'       
+    print '[-all] Add all discovered SI Databses'
+    print '[-targets <target1:target2:...] Add only list targets'
+    print '[-help]'
+    sys.exit()
+
+ if len(uname)==0 or len(pword)==0 or len(url)==0:
+         print 'Missing required arguments (-url, -username, -password)' 
+         print 'Usage: promote_discovered_dbs.py -url <EM URL> -username <username> -password <password> -monitor_pw <password>'
+         print '[-all] Add all discovered SI Databses'
+         print '[-targets <target1:target2:...] Add only list targets'
+         print '[-help]'
+         sys.exit()
+
+ # Set Connection properties and logon
+ set_client_property('EMCLI_OMS_URL',url)
+ set_client_property('EMCLI_TRUSTALL','true')
+ login(username=uname,password=pword) 
+
+ cred_str = "UserName:dbsnmp;password:" + monitor_pw + ";Role:Normal" 
+
+ if targetparms <> 0: 
+    targetparms = targetparms.replace(":",":oracle_database;")+":oracle_database"
+    target_array = get_targets(unmanaged=True,properties=True,targets=targetparms).out()['data']
+ elif alltargets:   
+    target_array = get_targets(targets="oracle_database",unmanaged=True,properties=True ).out()['data']
+ else:
+    print 'Missing required arguments (-targets or -all)'
+    helpUsage() 
+   
+ if len(target_array) > 0:
+    for target in target_array:
+            print 'Adding target ' + target['Target Name'] + '...',
+
+            for host in str.split(target['Host Info'],";"):
+                if host.split(":")[0] == "host":]
+                    print host.split(":")[1]
+            try:
+                res1 = add_target(type='oracle_database',name=target['Target Name'],host=host.split(":")[1], credentials=cred_str,properties=target['Properties'])
+                print 'Succeeded'
+            except VerbExecutionError, e:
+                print 'Failed'
+                print e.error()
+                print 'Exit code:'+str(e.exit_code())
+ else:
+    print 'INFO: There are no targets to be promoted. Please verify the targets in Enterprise Manager webpages.'

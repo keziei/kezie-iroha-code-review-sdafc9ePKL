@@ -1,0 +1,89 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Configure Oracle Env for Oracle DB
+---
+  - name: Create oinstall group
+    group:
+      name: "{{ oracle_group }}"
+      state: present
+      gid: 1503
+
+  - name: Create dba group
+    group:
+      name: "{{ oracle_sub_group }}"
+      state: present
+      gid: 57001
+
+  - name: Create oracle user
+    user:
+      name: "{{ oracle_owner }}"
+      create_home: yes
+      home: "{{ oracle_home_dir }}"
+      password: "{{ oracle_pw }}"
+      uid: 1503
+      group: "{{ oracle_group }}"
+      groups: "{{ oracle_sub_group }}"
+      shell: /bin/bash
+      state: present
+
+  - name: Create Oracle Directories
+    file:
+      path: "{{ item.value }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_inst_dir }}"
+
+  - name: Create Oracle Directories
+    file:
+      path: "{{ item.value }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_inst_dir_sid }}"
+
+  - name: Create Tool Directories
+    file:
+      path: "{{ item.value }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_tool_dir }}"    
+
+  - name: Create Oracle Home
+    file:
+      path: "{{ oracle_home }}"
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+
+  - name: Create oraInst
+    become: yes
+    blockinfile:
+      path: /etc/oraInst.loc
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      state: present
+      block: |
+        inventory_loc={{ ora_inst_dir.inv_dir }}
+        inst_group={{ oracle_group }}
+
+  - name: Create bash_profile
+    template:
+      dest: "{{ oracle_home_dir }}/.bash_profile"
+      src: oracle-bash-profile.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes

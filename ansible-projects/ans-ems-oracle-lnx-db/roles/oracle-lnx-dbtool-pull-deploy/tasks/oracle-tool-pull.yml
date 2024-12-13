@@ -1,0 +1,47 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+---
+  - name: HTTP Proxy Test
+    become_user: oracle  
+    get_url:
+      url: "{{ v_http_proxy }}"
+      dest: "{{ ora_tool_dir.swloc_dir }}"
+      force: True
+      timeout: 300
+    register: http_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ http_output.status_code }}"
+
+  - name: HTTPS Proxy Test
+    become_user: oracle
+    get_url:
+      url: "{{ v_https_proxy }}"
+      dest: "{{ ora_tool_dir.swloc_dir }}"
+      force: True
+      timeout: 300
+    register: https_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ https_output.status_code }}"
+      
+  - set_fact:
+      artifactory_url: "{{ v_https_proxy }}/{{ artifactory_repo }}"
+    when: https_output.status_code == 200
+  - set_fact:
+      artifactory_url: "{{ v_http_proxy }}/{{ artifactory_repo }}"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code == 200 )
+  - debug:
+      msg: "The selected Artifactory URL is: {{ artifactory_url }}"
+  - debug:
+      msg: "Could not connect to {{ artifactory_dc }} http or https artifactory proxy"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code != 200 )   
+
+  - name: "Fetching {{ artifactory_url }}/{{ artifact_tools}}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=5 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_tools}}/
+    args:
+      chdir: "{{ ora_tool_dir.swloc_dir }}"
+      warn: false
+    register: dbtools_fetch

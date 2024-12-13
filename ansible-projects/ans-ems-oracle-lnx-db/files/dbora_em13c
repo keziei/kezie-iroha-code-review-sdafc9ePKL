@@ -1,0 +1,80 @@
+#! /bin/sh -x
+# kiroha
+#
+# chkconfig: 2345 80 05
+# description: start and stop Oracle Database Enterprise Edition on Linux
+#
+
+# In /etc/oratab, change the autostart field from N to Y for any
+# databases that you want autostarted.
+#
+# Create this file as /etc/init.d/dbora and execute:
+#  chmod 750 /etc/init.d/dbora_em13c
+#  systemctl enable dbora_em13c
+
+# manual stop/start/restart
+# service dbora_em13c stop
+# service dbora_em13c start
+# service dbora_em13c restart
+
+# Note: Change the value of ORACLE_HOME to specify the correct Oracle home
+# directory for your installation.
+##ORACLE_HOME=/U01/app/oracle/product/18.0.0.0/db_1
+ORACLE_HOME=`grep -v '^\(Agent\|agent\|#\|*\|$\)' /etc/oratab | awk -F ':' '{print $2}'`
+EM_HOME=/U01/app/oracle/product/EM13.5
+OAS_HOME=/U01/app/oracle/product/OAS/FMW
+
+#
+# Note: Change the value of ORACLE to the login name of the oracle owner
+ORACLE=oracle
+
+PATH=${PATH}:$ORACLE_HOME/bin
+HOST=`hostname`
+PLATFORM=`uname`
+export ORACLE_HOME PATH
+
+case $1 in
+'start')
+        echo -n $"Starting Oracle Database: "
+        su $ORACLE -c "$ORACLE_HOME/bin/dbstart $ORACLE_HOME" &
+        sleep 5m
+        echo -n $"Starting EM13c and OAS: "
+        su $ORACLE -c "$EM_HOME/bin/emctl start oms"  &
+        sleep 5m
+        su $ORACLE -c "$OAS_HOME/user_projects/domains/bi/bitools/bin/start.sh" &
+        su $ORACLE -c "/U01/app/oracle/product/Agent13c/agent_inst/bin/emctl start agent" &
+        ;;
+'stop')
+        echo -n $"Shutting down EM13c and OAS webtier, this can take up to 10 minutes .."
+        su $ORACLE -c "$EM_HOME/bin/emctl stop oms -all"  &
+        sleep 5m
+        su $ORACLE -c "$OAS_HOME/user_projects/domains/bi/bitools/bin/stop.sh" &
+        sleep 5m
+        echo -n $"Shutting down Oracle Database: "
+        su $ORACLE -c "$ORACLE_HOME/bin/dbshut $ORACLE_HOME" &
+        su $ORACLE -c "/U01/app/oracle/product/Agent13c/agent_inst/bin/emctl stop agent" &
+        ;;
+'restart')
+        echo -n $"Shutting down EM13c and OAS webtier, this can take up to 20 minutes .."
+        su $ORACLE -c "$EM_HOME/bin/emctl stop oms -all"  &
+        sleep 5m
+        su $ORACLE -c "$OAS_HOME/user_projects/domains/bi/bitools/bin/stop.sh" &
+        sleep 5m
+        echo -n $"Shutting down Oracle Database: "
+        su $ORACLE -c "$ORACLE_HOME/bin/dbshut $ORACLE_HOME" &
+        sleep 5m
+        echo -n $"Starting Oracle Database: "
+        su $ORACLE -c "$ORACLE_HOME/bin/dbstart $ORACLE_HOME" &
+        sleep 5m
+        echo -n $"Starting EM13c and OAS webtier: "
+        su $ORACLE -c "$EM_HOME/bin/emctl start oms"  &
+        sleep 5m
+        su $ORACLE -c "$OAS_HOME/user_projects/domains/bi/bitools/bin/start.sh" &
+        ;;
+*)
+        echo "usage: $0 {start|stop|restart}"
+        exit
+        ;;
+esac
+
+exit

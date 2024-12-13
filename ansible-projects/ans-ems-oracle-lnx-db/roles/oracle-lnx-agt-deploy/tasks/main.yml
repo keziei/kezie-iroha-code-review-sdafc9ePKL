@@ -1,0 +1,32 @@
+# Author: Kezie Iroha
+# oracle-lnx-agt-deploy
+# Main file 
+---
+  - name: Common Vars
+    include_role:
+      name: common
+      public: yes
+      defaults_from: main.yml
+      vars_from: required-packages.yml  
+      
+  - name: Facts
+    include_tasks:
+      file: oracle-agt-fact.yml
+    
+  - name: Deploy Agent Image and EMCLI API
+    include_tasks:
+      file: oracle-agt-deploy.yml
+    when: artifactory_dc is defined and agt_install|bool
+    tags: agent_deploy 
+
+  - name: Promote Agent Targets
+    include_tasks:
+      file: oracle-agt-promote.yml
+    when: artifactory_dc is defined and agt_install|bool
+    tags: agent_promote
+
+  - name: Agent Root
+    include_tasks:
+      file: oracle-agt-root-only.yml
+    when: artifactory_dc is defined and root_only|bool
+    tags: agent_root

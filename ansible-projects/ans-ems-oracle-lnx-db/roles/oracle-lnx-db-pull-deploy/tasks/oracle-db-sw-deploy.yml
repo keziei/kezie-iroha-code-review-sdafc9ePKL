@@ -1,0 +1,278 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Deploy Oracle 11G-20C Database Software
+---
+    # Deploy Selected Oracle Software
+    - name: "Check {{ ora_inst_dir.bin_dir }} exists"
+      stat:
+        path: "{{ ora_inst_dir.bin_dir }}"
+      register: bin_dir_chk
+    - debug:
+        msg: "{{ ora_inst_dir.bin_dir }} does not exist"
+      when: bin_dir_chk.stat.isdir == False
+
+    - name: "Check {{ ora_inst_dir.inv_dir }} exists"
+      stat:
+        path: "{{ ora_inst_dir.inv_dir }}"
+      register: inv_dir_chk
+    - debug:
+        msg: "{{ ora_inst_dir.inv_dir }} does not exist"
+      when: inv_dir_chk.stat.isdir == False
+
+    - name: "Checking if Oracle database {{ oracle_version }} installation exists"
+      stat:
+        path: "{{ oracle_home }}/bin/sqlplus"
+      register: oracle_sqlp_chk
+    - debug:
+        msg: "The Oracle software is staged."
+      when: oracle_sqlp_chk.stat.exists
+
+    - name: "Installing Oracle Database {{ oracle_version }} Software"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: |
+          unset ORACLE_HOME
+          unset ORACLE_BASE
+          unset ORACLE_SID
+          unset TNS_ADMIN
+          {{ ora_sw_installer }}/runInstaller {{ ora_sw_parm }} -responseFile {{ ora_tool_dir.swloc_dir }}/Generic_SW_Install.rsp
+      args:
+        executable: /bin/sh  
+      register: db_install_res
+      when:
+        - ansible_facts['distribution'] == "RedHat"
+        - ansible_facts['distribution_major_version'] != "8"
+      changed_when: db_install_res.rc == 0
+      failed_when: "(db_install_res.stdout_lines is not defined) or ('Successfully Setup Software.' not in db_install_res.stdout_lines)"
+
+    - name: "Installing Oracle Database {{ oracle_version }} Software on RHEL8"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: |
+          unset ORACLE_HOME
+          unset ORACLE_BASE
+          unset ORACLE_SID
+          unset TNS_ADMIN
+          export CV_ASSUME_DISTID=OL7
+          {{ ora_sw_installer }}/runInstaller {{ ora_sw_parm_rhel8 }} -responseFile {{ ora_tool_dir.swloc_dir }}/Generic_SW_Install.rsp
+      args:
+        executable: /bin/sh  
+      register: db_install_res_rh8
+      when:
+        - ansible_facts['distribution'] == "RedHat"
+        - ansible_facts['distribution_major_version'] == "8"
+        - oracle_version == '19C'
+      changed_when: db_install_res_rh8.rc == 0
+      failed_when: "(db_install_res_rh8.stdout_lines is not defined) or ('Successfully Setup Software.' not in db_install_res_rh8.stdout_lines)"
+      ignore_errors: yes # display message about ignored failure below
+    - debug:
+          msg: 
+            - "On RHEL8, Linux RPM compat-libcap1-1.10 is deprecated and not available"
+            - "The following error can be ignored if the only missing rpm is:  compat-libcap1-1.10"
+            - "Error: [INS-13014] Target environment does not meet some optional requirements"
+            - "Install Log location: /U01/app/oraInventory/logs/InstallActions*/installActions*.log"
+      when:
+        - ansible_facts['distribution'] == "RedHat"
+        - ansible_facts['distribution_major_version'] == "8"
+        - oracle_version == '19C'
+
+    - name: "Verify Root script: {{ oracle_home }}/root.sh"
+      stat:
+        path: "{{ oracle_home }}/root.sh"
+      register: oracle_root_chk
+    - name: "Executing root script for Oracle Database {{ oracle_version }} Software"
+      shell:
+        cmd: >
+          {{ oracle_home }}/root.sh
+      args:
+        executable: /bin/sh           
+      register: db_root_result
+      changed_when: db_root_result.rc == 0
+      failed_when: db_root_result.rc != 0
+      when: oracle_root_chk.stat.exists
+
+    # Apply Patch Set Update (PSU)  
+    - name: "Updating Opatch Binary: {{ ora_opatch_binary }} in Oracle Home: {{ oracle_home }}"
+      unarchive:
+        src: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+        dest: "{{ oracle_home }}"
+        owner: "{{ oracle_owner }}"
+        group: "{{ oracle_group }}"
+        mode: 0755
+        remote_src: yes
+      loop: "{{ ora_opatch_binary }}"
+      register: update_opatch_chk
+      when: 
+        #- db_install_res.rc == 0  
+        - db_root_result.rc == 0
+    
+    - shell: 
+        cmd: |
+          echo `find . -mindepth 2 -maxdepth 2 -type d -printf '%P\n'`
+      args:
+        chdir: "{{ ora_tool_dir.latestpsu_dir }}"
+        executable: /bin/sh          
+      register: lpsu_patch_fnd
+    - set_fact:
+        patch_topdir: "{{ lpsu_patch_fnd.stdout.split() }}"
+    - debug:
+       msg: 
+         - "Oracle 11G Patching will be skipped by Ansible but can be attempted manually by the DBA"
+         - "Note the following bug which occurs while patching Oracle 11G:"
+         - "Relink Fails for make target jox_refresh_knlopt with Oracle JavaVM Component Database PSU (Doc ID 1933203.1)"
+      when: oracle_version == '11G'
+
+    - name: "Applying {{ oracle_version }} Patch Set Update"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: |
+          {{ oracle_home }}/OPatch/opatch apply {{ ora_opatch_parm }}
+      args:
+        chdir: "{{ ora_tool_dir.latestpsu_dir }}/{{ item }}"
+        executable: /bin/sh          
+      loop: "{{ patch_topdir }}"
+      register: patch_apply
+      when: oracle_version != '11G'
+      changed_when: patch_apply.rc == 0
+      failed_when: patch_apply.rc != 0
+      ignore_errors: yes
+
+    # Remove Oracle Software
+    - name: "Removing {{ ora_tool_dir.swloc_dir }}/database"
+      become_user: "{{ oracle_owner }}"
+      file:
+        path: "{{ ora_tool_dir.swloc_dir }}/database"
+        state: absent
+      when: 
+        #- db_install_res.rc == 0  
+        - db_root_result.rc == 0
+      ignore_errors: yes
+
+    - name: "Removing downloaded binaries"
+      become_user: "{{ oracle_owner }}"
+      file:
+        path: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+        state: absent
+      loop: "{{ ora_db_binary }}"
+      when: 
+        #- db_install_res.rc == 0  
+        - db_root_result.rc == 0
+      ignore_errors: yes
+
+    # Deploy Tools
+    - stat:
+        path: "{{ ora_tool_dir.ahf_dir }}/ahf_setup"
+      register: ahf_chk
+    - stat:
+        path: "{{ ora_tool_dir.ahf_dir }}/oracle.ahf/bin/tfactl"
+      register: ahf_chk_bin
+
+    - name: "Deinstall AHF"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.ahf_dir }}/oracle.ahf/bin/tfactl uninstall -local -silent
+      args:
+        executable: /bin/sh          
+      register: ahf_deinst
+      when: ahf_chk_bin.stat.exists
+      changed_when: ahf_deinst.rc == 0
+      failed_when: "(ahf_deinst.stdout_lines is not defined)"
+      ignore_errors: yes
+
+    - name: "Installing Oracle AHF Software to {{ ora_tool_dir.ahf_dir }}"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.ahf_dir }}/ahf_setup -ahf_loc {{ ora_tool_dir.ahf_dir }}
+      args:
+        executable: /bin/sh          
+      register: ahf_inst
+      when: ahf_chk.stat.exists
+      changed_when: ahf_inst.rc == 0
+      failed_when: "(ahf_inst.stdout_lines is not defined) or ('AHF is successfully installed' not in ahf_inst.stdout_lines)"
+      ignore_errors: yes
+
+    #- name: "AHF Status"
+    #  become_user: "{{ oracle_owner }}"
+    #  shell: 
+    #    cmd: >
+    #      {{ ora_tool_dir.ahf_dir }}/oracle.ahf/ahf/bin/tfactl toolstatus
+    #  args:
+    #    executable: /bin/sh
+    #  register: tool_stat 
+    #  when: ahf_inst.rc == 0
+    #  ignore_errors: yes
+    #- debug:
+    #    msg: "{{ tool_stat.stdout_lines }}"
+    #  ignore_errors: yes
+
+    # Deploy EM13c
+    - stat:
+        path: "{{ ora_inst_dir.bin_dir }}/Agent13c"
+      register: agtdir_chk
+    - stat:
+        path: "{{ ora_inst_dir.bin_dir }}/Agent13c/agent_inst/bin/emctl"
+      register: agtfile_emctl    
+    - debug:
+        msg: "Commencing EM13c configuration. Estimate time: 15 minutes"
+    - name: "Fetching, Installing and Patching Oracle EM13c Agent Software to {{ ora_inst_dir.bin_dir }}/Agent13c"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.script_dir }}/deploy_agent.sh 
+      args:
+        executable: /bin/sh           
+      register: agt_inst
+      when: agtfile_emctl.stat.exists == false
+      #changed_when: agt_inst.rc == 0
+      #failed_when: agt_inst.rc != 0
+      ignore_errors: yes
+
+    - name: Get Agent Version
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_inst_dir.bin_dir }}/Agent13c/agent_inst/bin/emctl status agent | grep "Agent Version" | awk -F ': ' '{print $2}'
+      args:
+        executable: /bin/sh          
+      register: agt_ver_fact
+      ignore_errors: yes
+    - set_fact:
+        em13c_agt_ver: "{{ agt_ver_fact.stdout }}"
+        em13c_agt_dir: "{{ ora_inst_dir.bin_dir }}/Agent13c/agent_{{ agt_ver_fact.stdout }}"
+        cacheable: no
+    - debug:
+        msg: 
+          - "Agent Version is: {{ em13c_agt_ver }}"
+          - "Agent Home is: {{ em13c_agt_dir }}"
+
+    - name: "Verify EM13c Root script: {{ em13c_agt_dir }}/root.sh"
+      stat:
+        path: "{{ em13c_agt_dir }}/root.sh"
+      register: em_root_chk
+    - name: "Executing root script for Oracle EM13c Software"
+      shell: 
+        cmd: >
+          {{ em13c_agt_dir }}/root.sh
+      args:
+        executable: /bin/sh          
+      register: em_root_result
+      when: em_root_chk.stat.exists      
+      changed_when: em_root_result.rc == 0
+      failed_when: em_root_result.rc != 0
+      ignore_errors: yes
+
+    - name: "EM13c Agent Status"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_inst_dir.bin_dir }}/Agent13c/agent_inst/bin/emctl status agent
+      args:
+        executable: /bin/sh
+      register: agt_stat 
+      when: em_root_result.rc == 0
+      ignore_errors: yes
+    - debug:
+        msg: "{{ agt_stat.stdout_lines }}"
+      ignore_errors: yes

@@ -1,0 +1,110 @@
+# Author: KIroha
+# ans-ems-oracle-lnx-cli 
+# Configure User Env for Oracle Client
+---
+  - name: Create oinstall group
+    group:
+      name: "{{ oracle_group }}"
+      state: present
+      gid: 1503
+
+  - name: Create dba group
+    group:
+      name: "{{ oracle_sub_group }}"
+      state: present
+      gid: 57001
+
+  - name: Create oracle user
+    user:
+      name: "{{ oracle_owner }}"
+      create_home: yes
+      home: "{{ cli_home_dir }}"
+      password: "{{ oracle_pw }}"
+      uid: 1503
+      group: "{{ oracle_group }}"
+      groups: "{{ oracle_sub_group }}"
+      shell: /bin/bash
+      state: present
+
+  - name: Create Oracle app Directory
+    file:
+      path: "{{ cli_app_dir }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+
+  - name: Create Oracle Inventory Directory
+    file:
+      path: "{{ cli_inv_dir }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+
+  - name: Create Oracle Base Directory
+    file:
+      path: "{{ cli_base_dir }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+
+  - name: Create RHEL8 CLI PSU Directory
+    file:
+      path: "{{ rhel8_cli_psu_dir }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"    
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - oracle_version in ['19C']               
+
+  - name: Create Oracle Binary Directory
+    file:
+      path: "{{ cli_bin_dir }}/{{ ora_cli_version }}/client_1"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+
+  - name: create oraInst
+    become: yes
+    blockinfile:
+      path: /etc/oraInst.loc
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      state: present
+      block: |
+        inventory_loc={{ cli_inv_dir }}
+        inst_group={{ oracle_group }}
+
+  - name: bash_profile
+    template:
+      dest: "{{ cli_home_dir }}/.bash_profile"
+      src: cli-oracle-bash-profile.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Client Response
+    template:
+      dest: "{{ cli_base_dir }}/cli-sw-install.rsp"
+      src: cli-sw-install.rsp.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes

@@ -1,0 +1,58 @@
+# Author: Kezie Iroha
+# Playbook to Check Oracle Service:
+# ansible-playbook -i your_inventory_file check_oracle_service.yml
+#
+# Kezie Iroha v0.1 25/01/2024 - This has not been tested yet
+
+---
+- name: Check Oracle Service on Multiple Hosts
+  hosts: all
+  gather_facts: no
+  vars:
+    oracle_port: 1521
+    oraenv_path: /usr/local/bin/oraenv
+    sql_query: |
+      set lines 1000 pages 200
+      col machine for a50
+      col username for a20
+      col service_name for a15
+      col osuser for a10
+      select machine, osuser, username, service_name, count(*) num_connections
+      from v$session
+      group by machine, osuser, username, service_name order by 2 asc;
+
+  tasks:
+    - name: Check if host is accessible (ping)
+      ping:
+
+    - name: Check if Oracle port is accessible
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ oracle_port }}"
+        state: started
+        timeout: 10
+      register: port_check
+      failed_when: port_check.state == "stopped"
+
+    - name: Perform tnsping to check listener
+      shell: tnsping localhost {{ oracle_port }}
+      register: tnsping_result
+      failed_when: "'OK' not in tnsping_result.stdout"
+
+    - name: Get Oracle SID from /etc/oratab
+      shell: grep -v '^\(Agent\|agent\|#\|*\|$\)' /etc/oratab | awk -F ':' '{print $1}'
+      register: oracle_sid
+      become: true
+      become_user: oracle
+
+    - name: Execute SQLPlus to get connection count summary
+      shell: |
+        export ORACLE_SID={{ oracle_sid.stdout }}
+        echo '{{ sql_query }}' | sqlplus -s / as sysdba
+      register: sql_result
+      become: true
+      become_user: oracle
+
+    - name: Show SQLPlus output
+      debug:
+        msg: "{{ sql_result.stdout }}"

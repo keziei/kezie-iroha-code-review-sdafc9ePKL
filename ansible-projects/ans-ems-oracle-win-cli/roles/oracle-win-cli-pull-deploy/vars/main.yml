@@ -1,0 +1,82 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+---
+# Artifactory repositories
+cloud_artifact:
+  OT: 
+    http: http://artifactory.net
+    https: https://artifactory.net:443
+  LIT: 
+    http: http://lit-artifactory.net:8081
+    https: https://lit-artifactory.net:8443
+  AM3: 
+    http: http://am3-artifactory.eu:8081
+    https: https://am3-artifactory.eu
+
+oracle_cli_artifactory: 'artifactory/cloud-ops-dba-local/Oracle_Binary_Client'
+oracle_app_dir: '{{ install_loc }}\app'
+oracle_base_dir: '{{ install_loc }}\app\oracle'
+oracle_prod_dir: '{{ install_loc }}\app\oracle\product'
+oracle_inv_dir: '{{ install_loc }}\app\oraInventory'
+
+oracle_cli:
+  20C:
+    path: '20.0.0'
+    artifactory_path: '20C'
+    bin: winX64_20c_not_released_yet.zip
+    opatch_bin: xxx
+    home: OraClient20c_Home1
+    stage_dir: '{{ oracle_prod_dir }}\20.0.0\client_1'
+    staged_dir: '{{ oracle_prod_dir }}\20.0.0\client_1'
+    pull_dir: '{{ install_loc }}\app\Oracle_Binary'
+    install_parm: '-silent -noconsole -nowait -waitForCompletion'
+  19C:
+    path: '19.0.0'
+    artifactory_path: '19C'
+    bin: WINDOWS.X64_193000_client_home.zip
+    opatch_bin: xxx
+    home: OraClient19c_Home1
+    stage_dir: '{{ oracle_prod_dir }}\19.0.0\client_1'
+    staged_dir: '{{ oracle_prod_dir }}\19.0.0\client_1'
+    pull_dir: '{{ install_loc }}\app\Oracle_Binary'
+    install_parm: '-silent -debug -noconsole -nowait -waitForCompletion'
+  18C:
+    path: '18.0.0'
+    artifactory_path: '18C'
+    bin: WINDOWS.X64_181000_client.zip
+    opatch_bin: xxx
+    home: OraClient18c_Home1
+    stage_dir: '{{ install_loc }}\app\Oracle_Binary'
+    staged_dir: '{{ install_loc }}\app\Oracle_Binary\client'
+    pull_dir: '{{ install_loc }}\app\Oracle_Binary'
+    install_parm: '-silent -noconsole -nowait -waitForCompletion'
+  12CR2:
+    path: '12.2.0.1'
+    artifactory_path: '12201'
+    bin: winx64_12201_client.zip
+    opatch_bin: xxx
+    home: OraClient122_Home1
+    stage_dir: '{{ install_loc }}\app\Oracle_Binary'
+    staged_dir: '{{ install_loc }}\app\Oracle_Binary\client'
+    pull_dir: '{{ install_loc }}\app\Oracle_Binary'
+    install_parm: '-silent -noconsole -nowait -waitForCompletion FROM_LOCATION={{ install_loc }}\app\Oracle_Binary\client\stage\products.xml'
+  12CR1:
+    path: '12.1.0.2'
+    artifactory_path: '12102'
+    bin: winx64_12102_client.zip
+    opatch_bin: xxx
+    home: OraClient121_Home1
+    stage_dir: '{{ install_loc }}\app\Oracle_Binary'
+    staged_dir: '{{ install_loc }}\app\Oracle_Binary\client'
+    pull_dir: '{{ install_loc }}\app\Oracle_Binary'
+    install_parm: '-silent -noconsole -nowait -waitForCompletion FROM_LOCATION={{ install_loc }}\app\Oracle_Binary\client\stage\products.xml'
+  11G: 
+    path: '11.2.0.4'
+    artifactory_path: '11204'
+    bin: p13390677_112040_MSWIN-x86-64_4of7.zip
+    opatch_bin: xxx
+    home: OraClient11g_Home1
+    stage_dir: '{{ install_loc }}\app\Oracle_Binary'
+    staged_dir: '{{ install_loc }}\app\Oracle_Binary\client'
+    pull_dir: '{{ install_loc }}\app\Oracle_Binary'
+    install_parm: '-silent -force -noconsole -nowait -waitForCompletion FROM_LOCATION={{ install_loc }}\app\Oracle_Binary\client\stage\products.xml'

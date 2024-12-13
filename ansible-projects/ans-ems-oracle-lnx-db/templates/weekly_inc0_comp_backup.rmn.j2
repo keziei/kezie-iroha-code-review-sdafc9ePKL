@@ -1,0 +1,15 @@
+spool log to '{{ ora_tool_dir.script_dir }}/{{ oracle_sid }}_weekly_inc0_comp_backup.log' APPEND;
+run {
+crosscheck backupset;
+crosscheck archivelog all;
+delete noprompt expired backup;
+delete noprompt expired archivelog all;
+delete noprompt obsolete;
+allocate channel c1 type disk;
+allocate channel c2 type disk;
+backup check logical as compressed backupset incremental level 0 database tag 'LVL0_INCR' FORMAT '/Fast_Recovery/{{ oracle_sid }}/LVL0_INCR_%d_%U_%t_%s';
+backup check logical as compressed backupset archivelog all filesperset 32 not backed up delete input tag 'LVL0_INCR' FORMAT '/Fast_Recovery/{{ oracle_sid }}/ARCH_comp_%d_%U_%t_%s';
+delete noprompt obsolete;
+release channel c1;
+release channel c2;
+}

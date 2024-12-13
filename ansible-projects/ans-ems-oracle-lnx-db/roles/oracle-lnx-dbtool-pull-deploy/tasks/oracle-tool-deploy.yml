@@ -1,0 +1,53 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+# Deploy Oracle 11G-20C Database Software
+---
+  # Deploy Tools
+    - stat:
+        path: "{{ ora_tool_dir.ahf_dir }}/ahf_setup"
+      register: ahf_chk
+    - stat:
+        path: "{{ ora_tool_dir.ahf_dir }}/oracle.ahf/bin/tfactl"
+      register: ahf_chk_bin
+
+    - name: "Deinstall AHF"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.ahf_dir }}/oracle.ahf/bin/tfactl uninstall -local -silent
+      args:
+        executable: /bin/sh          
+      register: ahf_deinst
+      when: ahf_chk_bin.stat.exists
+      changed_when: ahf_deinst.rc == 0
+      failed_when: "(ahf_deinst.stdout_lines is not defined)"
+      ignore_errors: yes
+
+    - name: "Installing Oracle AHF Software to {{ ora_tool_dir.ahf_dir }}"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.ahf_dir }}/ahf_setup -ahf_loc {{ ora_tool_dir.ahf_dir }}
+      args:
+        executable: /bin/sh          
+      register: ahf_inst
+      when: ahf_chk.stat.exists
+      changed_when: ahf_inst.rc == 0
+      failed_when: "(ahf_inst.stdout_lines is not defined) or ('AHF is successfully installed' not in ahf_inst.stdout_lines)"
+      ignore_errors: yes
+
+    #- name: "AHF Status"
+    #  become_user: "{{ oracle_owner }}"
+    #  shell: 
+    #    cmd: >
+    #      {{ ora_tool_dir.ahf_dir }}/oracle.ahf/ahf/bin/tfactl toolstatus
+    #  args:
+    #    executable: /bin/sh
+    #  register: tool_stat 
+    #  when: ahf_inst.rc == 0
+    #  ignore_errors: yes
+    #- debug:
+    #    msg: "{{ tool_stat.stdout_lines }}"
+    #  ignore_errors: yes
+
+   

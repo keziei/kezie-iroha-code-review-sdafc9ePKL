@@ -1,0 +1,18 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+---
+  - name: Common Vars
+    include_role:
+      name: common
+      public: yes
+      defaults_from: main.yml
+
+  - name: DB Tool Updates
+    include_tasks: "{{ item }}"
+    loop: 
+      - oracle-tool-fact.yml
+      - oracle-tool-env.yml
+      - oracle-tool-pull.yml
+      - oracle-tool-stage.yml
+      - oracle-tool-deploy.yml
+    when: artifactory_dc is defined 

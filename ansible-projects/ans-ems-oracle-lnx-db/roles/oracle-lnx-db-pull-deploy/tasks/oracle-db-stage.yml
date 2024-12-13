@@ -1,0 +1,441 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Stage Oracle Database Software
+---
+  - name: Verifying U01 ownership
+    stat:
+      path: /U01
+    register: U01_stat
+  - fail:
+        msg: "/U01 should be owned by oracle"
+    when: U01_stat.stat.pw_name != 'oracle'
+
+  - name: Verifying U01 size
+    shell: >
+     echo "( `df -P /U01 | awk 'NR==2 {print $4}'`/1024/1024 )" | bc
+    register: U01_dir_size
+  - fail:
+      msg: "The /U01 directory has less than 10 GB available"
+    when: U01_dir_size.stdout | int < 10
+
+  - name: "Unzipping {{ ora_db_binary }} to {{ ora_stage_dir }}"
+    unarchive:
+      src: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+      dest: "{{ ora_stage_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    loop: "{{ ora_db_binary }}"
+
+  - name: "Pre Stage Opatch Binary: {{ ora_opatch_binary }} in Oracle Home: {{ oracle_home }}"
+    unarchive:
+      src: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+      dest: "{{ oracle_home }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    loop: "{{ ora_opatch_binary }}"
+    register: pre_update_opatch_chk
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - (oracle_version == '19C') or (oracle_version == '18C')
+
+  - name: Find AHF
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="AHF*.zip"
+    register: find_ahf
+  - name: "Unzipping AHF to {{ ora_tool_dir.ahf_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.ahf_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_ahf.files }}"
+
+  - name: Find RDA
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="p21769913*.zip"
+    register: find_rda
+  - name: "Unzipping RDA to {{ ora_tool_dir.rda_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.rda_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_rda.files }}"
+
+  - name: Find SQLHC
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="sqlhc*.zip"
+    register: find_sqlhc
+  - name: "Unzipping SQLHC to {{ ora_tool_dir.sqlhc_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.sqlhc_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_sqlhc.files }}"
+
+  - name: Find Latest PSU
+    find: paths="{{ ora_tool_dir.latestpsu_dir }}" patterns="*.zip"
+    register: find_latest_psu
+  - name: "Unzipping Latest PSU to {{ ora_tool_dir.latestpsu_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.latestpsu_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_latest_psu.files }}"
+
+  - name: Find Other Patches
+    find: paths="{{ ora_tool_dir.otherpatch_dir }}" patterns="*.zip"
+    register: find_other_patches
+  - name: "Unzipping Other Patches to {{ ora_tool_dir.otherpatch_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.otherpatch_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_other_patches.files }}"
+
+  - name: Find RHEL8 Patches
+    find: paths="{{ ora_tool_dir.rhel8_db_psu_dir }}" patterns="*.zip"
+    register: find_rhel8_db_patches
+  - name: "Unzipping Other Patches to {{ ora_tool_dir.rhel8_db_psu_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.rhel8_db_psu_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_rhel8_db_patches.files }}"    
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - oracle_version in ['19C'] 
+
+  - name: Create Database Install Template
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ ora_tool_dir.swloc_dir}}/Generic_DB_SI.dbt"
+      src: Generic_DB_SI.dbt.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Create Database Response
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ ora_tool_dir.swloc_dir}}/Generic_DB_SI.rsp"
+      src: Generic_DB_SI.rsp.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Create Software Response
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ ora_tool_dir.swloc_dir}}/Generic_SW_Install.rsp"
+      src: Generic_SW_Install.rsp.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: RMAN Full Compressed Script
+    blockinfile:
+      path: "{{ ora_tool_dir.script_dir }}/comp_backup_{{ oracle_sid }}.sh"
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      state: present
+      block: |
+        export ORACLE_HOME={{ oracle_home }}
+        export ORACLE_SID={{ oracle_sid }}
+        export PATH=$PATH:$ORACLE_HOME/bin
+        export NLS_DATE_FORMAT=\"DD-MON-YYYY HH24:MI:SS\"
+        rman target / nocatalog @'{{ ora_tool_dir.script_dir }}/full_backup_compressed_to_disk_{{ oracle_sid }}.rmn'
+
+  - name: RMAN Arch Compressed Script
+    blockinfile:
+      path: "{{ ora_tool_dir.script_dir }}/arch_backup_{{ oracle_sid }}.sh"
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      state: present
+      block: |
+        export ORACLE_HOME={{ oracle_home }}
+        export ORACLE_SID={{ oracle_sid }}
+        export PATH=$PATH:$ORACLE_HOME/bin
+        export NLS_DATE_FORMAT=\"DD-MON-YYYY HH24:MI:SS\"
+        rman target / nocatalog @'{{ ora_tool_dir.script_dir }}/archivelog_backup_compressed_{{ oracle_sid }}.rmn'
+
+  - name: Weekly L0 Script
+    blockinfile:
+      path: "{{ ora_tool_dir.script_dir }}/weekly_inc0_comp_backup_{{ oracle_sid }}.sh"
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      state: present
+      block: |
+        export ORACLE_HOME={{ oracle_home }}
+        export ORACLE_SID={{ oracle_sid }}
+        export PATH=$PATH:$ORACLE_HOME/bin
+        export NLS_DATE_FORMAT=\"DD-MON-YYYY HH24:MI:SS\"
+        rman target / nocatalog @'{{ ora_tool_dir.script_dir }}/weekly_inc0_comp_backup_{{ oracle_sid }}.rmn'
+
+  - name: Daily L1 Script
+    blockinfile:
+      path: "{{ ora_tool_dir.script_dir }}/daily_inc1_comp_backup_{{ oracle_sid }}.sh"
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      state: present
+      block: |
+        export ORACLE_HOME={{ oracle_home }}
+        export ORACLE_SID={{ oracle_sid }}
+        export PATH=$PATH:$ORACLE_HOME/bin
+        export NLS_DATE_FORMAT=\"DD-MON-YYYY HH24:MI:SS\"
+        rman target / nocatalog @'{{ ora_tool_dir.script_dir }}/daily_inc1_comp_backup_{{ oracle_sid }}.rmn'    
+
+  - name: Daily Incrementally Updated Backup Script
+    blockinfile:
+      path: "{{ ora_tool_dir.script_dir }}/daily_inc_updated_backup_{{ oracle_sid }}.sh"
+      backup: yes
+      create: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      state: present
+      block: |
+        export ORACLE_HOME={{ oracle_home }}
+        export ORACLE_SID={{ oracle_sid }}
+        export PATH=$PATH:$ORACLE_HOME/bin
+        export NLS_DATE_FORMAT=\"DD-MON-YYYY HH24:MI:SS\"
+        rman target / nocatalog @'{{ ora_tool_dir.script_dir }}/daily_inc_updated_backup_{{ oracle_sid }}.rmn'               
+
+  - name: Copy ocm.rsp
+    copy:
+      dest: "{{ ora_tool_dir.latestpsu_dir }}/ocm.rsp"
+      src: ocm.rsp
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+      
+  - name: Copy ot_ora_complexity_check.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/ot_ora_complexity_check.sql"
+      src: ot_ora_complexity_check.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy ot_verify_function.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/ot_verify_function.sql"
+      src: ot_verify_function.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy option_packs_usage_statistics.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/option_packs_usage_statistics.sql"
+      src: option_packs_usage_statistics.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy db_autotask.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/db_autotask.sql"
+      src: db_autotask.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy aud_fix.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/aud_fix.sql"
+      src: aud_fix.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy gather_stats.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/gather_stats.sql"
+      src: gather_stats.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy db_profiles.sql
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/db_profiles.sql"
+      src: db_profiles.sql
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+
+  - name: Copy rman config
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/rman_config.rmn"
+      src: rman_config.rmn.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - name: Copy Arch Backup Script
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/archivelog_backup_compressed_{{ oracle_sid }}.rmn"
+      src: rman_arch_comp.rmn.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - name: Copy Daily Full Backup Script
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/full_backup_compressed_to_disk_{{ oracle_sid }}.rmn"
+      src: rman_full_comp.rmn.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - name: Copy Weekly L0 Backup Script
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/weekly_inc0_comp_backup_{{ oracle_sid }}.rmn"
+      src: weekly_inc0_comp_backup.rmn.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - name: Copy Daily L1 Backup Script
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/daily_inc1_comp_backup_{{ oracle_sid }}.rmn"
+      src: daily_inc1_comp_backup.rmn.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - name: Copy Daily Inc Updated Backup Script
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/daily_inc_updated_backup_{{ oracle_sid }}.rmn"
+      src: daily_inc_updated_backup.rmn.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes      
+
+  - name: Copy db sga
+    template:
+      dest: "{{ ora_tool_dir.script_dir }}/db_sga.sh"
+      src: db_sga.sh.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes      
+
+  - name: Copy Hugepage Settings
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/hugepage_settings.sh"
+      src: hugepage_settings.sh
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes    
+
+  - name: Copy EMCLI Config
+    copy:
+      dest: "{{ ora_tool_dir.script_dir }}/deploy_emcli_api.sh"
+      src: deploy_emcli_api.sh
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes    
+
+  - name: Create EM13c Agent Deploy Script
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ ora_tool_dir.script_dir}}/deploy_agent.sh"
+      src: deploy_agent.sh.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+    when: srvloc is defined      
+
+  - name: Create_APPADMIN_Schema Script
+    copy:
+      dest: "{{ ora_tool_dir.script_dir}}/Create_APPADMIN_Schema.sh"
+      src: Create_APPADMIN_Schema.sh
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes    
+
+  - name: Create_Schemas Script
+    copy:
+      dest: "{{ ora_tool_dir.script_dir}}/Create_Schemas.sh"
+      src: Create_Schemas.sh
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes          

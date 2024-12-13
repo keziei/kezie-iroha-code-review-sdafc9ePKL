@@ -1,0 +1,45 @@
+# Author: KIroha
+# ans-ems-oracle-lnx-cli 
+# oracle-cli-facts
+--- 
+  - set_fact:
+      ora_db_binary: "{{ item.value.db_bin }}"
+      ora_opatch_binary: "{{ item.value.opatch_bin }}"
+      ora_version: "{{ item.value.path }}"
+      ora_home_name:  "{{ item.value.home }}"
+      ora_db_artifactory: "{{ item.value.artifactory_path }}"
+      ora_compatible: "{{ item.value.compatible }}"
+      ora_template: "{{ item.value.template }}"
+      ora_sw_installer: "{{ item.value.installer_loc }}"
+      ora_sw_parm: "{{ item.value.installer_parm }}"
+      ora_sw_parm_rhel8: "{{ item.value.installer_parm_rhel8 }}"
+      ora_stage_dir: "{{ item.value.stage_dir }}"
+      ora_opatch_parm: "{{ item.value.opatch_parm }}"
+      ora_db_rhel8_base_bin: "{{ item.value.rhel8_base_bin }}"
+      ora_db_psu_base_bin: "{{ item.value.psu_base_bin }}"
+      cacheable: no
+    with_dict: "{{ oracle_db }}"
+    when: oracle_version is defined and oracle_version in item.key
+
+  - set_fact:
+      ora_cli_binary: "{{ item.value.bin }}"
+      ora_cli_version: "{{ item.value.path }}"
+      ora_home: "{{ item.value.home }}"
+      ora_cli_sw_parm: "{{ item.value.installer_parm }}"
+      ora_cli_sw_parm_rhel8: "{{ item.value.installer_parm_rhel8 }}"
+      ora_cli_installer: "{{ item.value.installer_loc }}"
+      ora_cli_bin_stage_dir: "{{ item.value.stage_dir }}"
+      cacheable: no
+    with_dict: "{{ oracle_cli }}"
+    when: oracle_version is defined and oracle_version in item.key
+
+  - set_fact:
+      oracle_home: '{{ cli_bin_dir }}/{{ ora_cli_version }}/client_1'
+      oracle_base: "{{ cli_base_dir }}"
+    when: oracle_version is defined
+
+  - set_fact:
+      v_http_proxy: "{{ item.value.http }}"
+      v_https_proxy: "{{ item.value.https }}"
+    with_dict: "{{ cloud_artifact }}"
+    when: artifactory_dc in item.key

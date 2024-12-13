@@ -1,0 +1,33 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Playbook for Linux Oracle Client command line deploy
+---
+- hosts: "{{ v_host }}"
+  become: yes
+  roles:
+    - role: oracle-lnx-cli-pull-deploy
+  vars:
+    # specify cloud artifactory proxy data centre: LIT, AM3
+    artifactory_dc: LIT 
+
+    # specify one of 11G, 12CR1, 12CR2, 18C, 19C
+    # 11G - Oracle 11.2.0.4
+    # 12CR1 - Oracle 12.1.0.2
+    # 12CR2 - Oracle 12.2.0.1
+    # 18C - Oracle 18.x.0.0
+    # 19C - Oracle 19.x.0.0
+    oracle_version: 19C
+
+    # Specify install location for the ORACLE binary 
+    # The base can be /opt or /U01
+    # If you specify /opt then please ensure that it has been sized with at least 6GB for the oracle client. 
+    # This should preferably be a dedicated mount /opt/apps/oracle on the linux app server
+    cli_install_loc: /opt
+
+    # Specify the name of the oracle sid and oracle db host that this client will connect to
+    # This will be used to create the client tnsnames.ora
+    oracle_sid: MYDB1
+    oracle_fqdn: mydb1.cust.some.host
+
+    # Install Oracle client linux rpm (default no)
+    update_rpm: no
