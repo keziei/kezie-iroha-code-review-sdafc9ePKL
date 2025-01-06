@@ -1,0 +1,13 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+# Configure Oracle Env for Oracle DB
+---
+  - name: Create Oracle Directories
+    file:
+      path: "{{ item.value }}"
+      recurse: yes
+      state: directory
+      mode: 0755
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_tool_dir }}"

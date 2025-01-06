@@ -1,0 +1,9 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Ansible Tower Playbook for Oracle Database Deploy
+---
+- hosts: "{{ v_host }}"
+  become: yes
+  roles:
+    - role: oracle-lnx-db-pull-deploy
+

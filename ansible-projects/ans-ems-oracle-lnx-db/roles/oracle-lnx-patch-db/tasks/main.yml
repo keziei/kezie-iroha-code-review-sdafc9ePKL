@@ -1,0 +1,32 @@
+# Author: Kezie Iroha
+# oracle-lnx-patch-db
+# Main file for oracle-patch-deploy
+---
+  - name: Common Vars
+    include_role:
+      name: common
+      public: yes
+      defaults_from: main.yml
+      vars_from: required-packages.yml  
+
+  - name: Facts
+    include_tasks:
+      file: oracle-db-patch-fact.yml
+
+  - name: Pull Oracle PSU Software
+    include_tasks:
+      file: oracle-db-patch-pull.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: pull_patch  
+
+  - name: Stage Oracle PSU Software
+    include_tasks:
+      file: oracle-db-patch-stage.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: stage_patch  
+
+  - name: Deploy Oracle PSU Software
+    include_tasks:
+      file: oracle-db-patch-deploy.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: deploy_patch  

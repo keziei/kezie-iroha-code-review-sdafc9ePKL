@@ -1,0 +1,6 @@
+galaxy_info:
+  author: Kezie Iroha
+  description: ans-ems-oracle-lnx-db
+  company: kiroha
+
+  min_ansible_version: 2.9

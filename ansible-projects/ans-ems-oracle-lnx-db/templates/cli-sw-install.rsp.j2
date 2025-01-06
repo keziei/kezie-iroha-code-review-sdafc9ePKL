@@ -1,0 +1,27 @@
+{% if oracle_version == '19C' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v19.0.0
+{% elif oracle_version == '18C' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v18.0.0
+{% elif oracle_version == '12CR2' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v12.2.0
+{% elif oracle_version == '12CR1' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v12.1.0
+{% elif oracle_version == '11G' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v11_2_0
+{% else %}
+{% endif %}
+
+UNIX_GROUP_NAME={{ oracle_group }}
+INVENTORY_LOCATION={{ cli_inv_dir }}
+ORACLE_BASE={{ cli_base_dir }}
+{% if oracle_version in ['11G','12CR1','12CR2','18C'] %}
+ORACLE_HOME={{ cli_bin_dir }}/{{ ora_cli_version }}/client_1 
+SELECTED_LANGUAGES=en
+oracle.install.client.installType=Administrator
+{% else %}
+{% endif %}
+{% if oracle_version in ['11G'] %}
+ORACLE_HOSTNAME={{ ansible_fqdn }}
+oracle.installer.autoupdates.option=SKIP_UPDATES
+{% else %}
+{% endif %}

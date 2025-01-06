@@ -1,0 +1,47 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+# Deploy Oracle 11G-20C Windows Client
+---
+  - name: "Removing Existing Oracle {{ ora_version }} Client"
+    win_command: "oracle_cli_rem.bat"
+    args:
+      chdir: "{{ ora_pull_dir }}"
+    register: db_client_rem_result
+    when: remove_existing_client|bool
+    changed_when: db_client_rem_result.rc == 0
+    failed_when: db_client_rem_result.rc != 0    
+    tags: remove-dbclient
+  - debug:
+      msg: "{{ db_client_rem_result }}"
+
+  - name: "Installing Oracle {{ ora_version }} Client"
+    win_command: "oracle_cli_inst.bat"
+    args:
+      chdir: "{{ ora_pull_dir }}"
+    register: db_client_install_result
+    changed_when: db_client_install_result.rc == 0
+    failed_when: db_client_install_result.rc != 0    
+    tags: deploy-dbclient-binary
+  - debug:
+      msg: "{{ db_client_install_result }}"
+
+  - name: Create Oracle tnsname
+    win_template:
+      dest: '{{ oracle_home }}\network\admin\tnsnames.ora'
+      src: tnsname.j2
+      force: yes
+      backup: yes
+    tags:
+      - deploy-dbclient-tns
+
+  - name: "Checking if Oracle Client {{ ora_version }} installation exists already"
+    win_stat:
+      path: '{{ oracle_home }}\network\admin\tnsnames.ora'
+    register: oracle_tnsname_chk
+
+  - name: 'Removing {{ ora_pull_dir }}'
+    win_file:
+      path: '{{ ora_pull_dir }}'
+      state: absent
+    when: oracle_tnsname_chk.stat.exists
+    tags: remove-dbclient-binary

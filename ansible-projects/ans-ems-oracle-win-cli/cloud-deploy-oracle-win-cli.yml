@@ -1,0 +1,35 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+# Build Ops Playbook for Oracle client deploy
+---
+- hosts: your_ansible_host_group
+  roles:
+    - role: oracle-win-cli-pull-deploy
+  vars:
+    ansible_user: Username
+    ansible_password: Password
+    ansible_connection: winrm
+    ansible_winrm_transport: kerberos
+    ansible_port: 5985
+    ansible_winrm_server_cert_validation: ignore
+
+    # install_loc: specify base install file system for the oracle client, this is usually D:
+    install_loc: "D:"
+
+    # specify cloud artifactory proxy data centre: LIT, AM3
+    artifactory_dc: LIT
+
+    # specify one of 11G, 12CR1, 12CR2, 18C, 19C
+    # 11G - Oracle 11.2.0.4
+    # 12CR1 - Oracle 12.1.0.2
+    # 12CR2 - Oracle 12.2.0.1
+    # 18C - Oracle 18.x.0.0
+    # 19C - Oracle 19.x.0.0
+    oracle_version: 19C
+
+    # Specify the name of the oracle sid and oracle db host that this client will connect to
+    oracle_sid: MYDB1
+    oracle_fqdn: mydb1.cust.some.host
+
+    # Specify yes to uninstall an existing binary version
+    remove_existing_client: no

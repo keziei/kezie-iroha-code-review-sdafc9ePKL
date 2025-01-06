@@ -1,0 +1,28 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+# oracle-cli-facts
+---
+  - set_fact:
+      ora_cli_binary: "{{ item.value.bin }}"
+      ora_opatch_binary: "{{ item.value.opatch_bin }}"
+      ora_version: "{{ item.value.path }}"
+      ora_home_name:  "{{ item.value.home }}"
+      ora_artifactory: "{{ item.value.artifactory_path }}"
+      ora_stage_dir: "{{ item.value.stage_dir }}"
+      ora_staged_dir: "{{ item.value.staged_dir }}"
+      ora_pull_dir: "{{ item.value.pull_dir }}"
+      ora_inst_parm: "{{ item.value.install_parm }}"
+      cacheable: no
+    with_dict: "{{ oracle_cli }}"
+    when: oracle_version is defined and oracle_version in item.key
+
+  - set_fact:
+      oracle_home: '{{ oracle_prod_dir }}\{{ ora_version }}\client_1'
+      oracle_base: "{{ oracle_base_dir }}"
+    when: oracle_version is defined
+
+  - set_fact:
+      v_http_proxy: "{{ item.value.http }}"
+      v_https_proxy: "{{ item.value.https }}"
+    with_dict: "{{ cloud_artifact }}"
+    when: artifactory_dc in item.key

@@ -1,0 +1,20 @@
+{% if oracle_version == '11G' %}
+RESPONSEFILE_VERSION ="{{ ora_version }}"
+OPERATION_TYPE = "createDatabase"
+DATABASECONFTYPE  = "SI"
+GDBNAME = "{{ oracle_sid }}"
+SID = "{{ oracle_sid }}"
+STORAGETYPE=FS
+MEMORYPERCENTAGE = "75"
+DATABASETYPE = "MULTIPURPOSE"
+AUTOMATICMEMORYMANAGEMENT = "FALSE"
+{% else %}
+responseFileVersion="{{ ora_version }}"
+databaseConfigType  = "SI"
+gdbName = "{{ oracle_sid }}"
+sid = "{{ oracle_sid }}"
+storageType=FS
+memoryPercentage = "75"
+databaseType = "MULTIPURPOSE"
+automaticMemoryManagement = "FALSE"
+{% endif %}

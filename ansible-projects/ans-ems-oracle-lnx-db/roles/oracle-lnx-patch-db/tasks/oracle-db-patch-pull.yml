@@ -1,0 +1,114 @@
+# Author: Kezie Iroha
+# oracle-lnx-patch-db
+---
+  - name: HTTP Proxy Test
+    become_user: oracle  
+    get_url:
+      url: "{{ v_http_proxy }}"
+      dest: "{{ ora_tool_dir.swloc_dir }}"
+      force: True
+      timeout: 300
+    register: http_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ http_output.status_code }}"
+
+  - name: HTTPS Proxy Test
+    become_user: oracle
+    get_url:
+      url: "{{ v_https_proxy }}"
+      dest: "{{ ora_tool_dir.swloc_dir }}"
+      force: True
+      timeout: 300
+    register: https_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ https_output.status_code }}"
+      
+  - set_fact:
+      artifactory_url: "{{ v_https_proxy }}/{{ artifactory_repo }}"
+    when: https_output.status_code == 200
+  - set_fact:
+      artifactory_url: "{{ v_http_proxy }}/{{ artifactory_repo }}"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code == 200 )
+  - debug:
+      msg: "The selected Artifactory URL is: {{ artifactory_url }}"
+  - debug:
+      msg: "Could not connect to {{ artifactory_dc }} http or https artifactory proxy"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code != 200 )   
+
+  # Fetch OPatch Binaries
+  - stat:
+      path: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+    loop: "{{ ora_opatch_binary }}"
+    register: ora_opatch_binary_chk
+  - name: "Fetching Oracle {{ ora_version }} OPatch Binary from: {{ artifactory_url }}/{{ artifact_db_opatch_ver }}"
+    become_user: oracle
+    get_url:
+      dest: "{{ ora_tool_dir.swloc_dir }}"
+      tmp_dest: "{{ ora_tool_dir.swloc_dir }}"
+      url: "{{ artifactory_url }}/{{ artifact_db_opatch_ver }}/{{ item }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      timeout: 300
+    loop: "{{ ora_opatch_binary }}"
+    register: opatch_fetch
+
+  # Fetch any available PSU from directory. Oracle patch file names change every quarter and cannot be pre-defined facts
+  # ansible modules get_url/uri do not support directory or wildcard fetch, and so wget is used here 
+  - debug:
+      msg: 
+        - "Fetching all binaries under directory list. Estimate time: 25 minutes"
+        - "{{ artifactory_url }}/{{ artifact_db_latest_psu }}/"
+        - "{{ artifactory_url }}/{{ artifact_db_other_patches }}/"
+        - "{{ artifactory_url }}/{{ artifact_tools}}/"
+  
+  - name: "Fetching Oracle {{ ora_version }} PSU from: {{ artifactory_url }}/{{ artifact_db_latest_psu }}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_latest_psu }}/
+    args:
+      chdir: "{{ ora_tool_dir.swloc_dir }}"
+      warn: false
+    register: latest_psu_fetch
+
+  - name: "Fetching other Oracle {{ ora_version }} Patches from: {{ artifactory_url }}/{{ artifact_db_other_patches }}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_other_patches }}/
+    args:
+      chdir: "{{ ora_tool_dir.swloc_dir }}"
+      warn: false
+    register: other_patch_fetch
+
+  - name: "Fetching {{ artifactory_url }}/{{ artifact_tools}}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=5 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_tools}}/
+    args:
+      chdir: "{{ ora_tool_dir.swloc_dir }}"
+      warn: false
+    register: dbtools_fetch
+
+  - name: "Fetching {{ artifactory_url }}/{{ artifact_db_rhel8_bin }}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_rhel8_bin }}
+    args:
+      chdir: "{{ ora_tool_dir.swloc_dir }}"
+      warn: false
+    register: rhel8_psu_fetch    
+    when:
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+
+  - name: "Fetching {{ artifactory_url }}/{{ artifact_db_psu_archive }}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_psu_archive }}/{{ ora_db_psu_base_bin }}
+    args:
+      chdir: "{{ ora_tool_dir.swloc_dir }}"
+      warn: false
+    register: 11g_psu_fetch
+    when: oracle_version == '11G'

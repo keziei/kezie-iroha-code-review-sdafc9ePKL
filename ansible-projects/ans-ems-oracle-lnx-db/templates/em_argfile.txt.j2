@@ -1,0 +1,4 @@
+add_target -name="LISTENER_{{ ansible_fqdn }}" -type="oracle_listener" -host="{{ ansible_fqdn }}" -properties="LsnrName:LISTENER;ListenerOraDir:{{ oracle_home }}/network/admin;Port:1521;OracleHome:{{ oracle_home }};Machine:{{ ansible_fqdn }};"
+add_target -name="{{ oracle_sid }}" -type="oracle_database" -host="{{ ansible_fqdn }}" -credentials="UserName:dbsnmp;password:"{{ snmp_pw }}$R0ck";Role:Normal" -properties="SID:{{ oracle_sid }};Port:1521;OracleHome:{{ oracle_home }};MachineName:{{ ansible_fqdn }};"
+add_target -name="{{ ora_home_name }}_{{ ansible_fqdn }}" -type="oracle_home" -host="{{ ansible_fqdn }}" -properties="HOME_TYPE:O;INSTALL_LOCATION:{{ oracle_home }};INVENTORY:/U01/app/oraInventory"
+

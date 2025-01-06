@@ -1,0 +1,56 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Main file for oracle-db
+---
+  - name: Common Vars
+    include_role:
+      name: common
+      public: yes
+      defaults_from: main.yml
+      vars_from: required-packages.yml  
+
+  - name: Facts
+    include_tasks:
+      file: oracle-db-fact.yml
+
+  - name: Deploy Oracle RPM
+    include_tasks:
+      file: oracle-db-rpm.yml
+    when: update_rpm|bool      
+    tags: deploy_rpm   
+
+  - name: Cleanup Oracle Database Build
+    include_tasks:
+      file: oracle-sw-cleanup.yml
+    when: cleanup|bool
+    tags: cleanup
+    
+  - name: Configure Oracle User Env
+    include_tasks:
+      file: oracle-db-env.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: config_env
+
+  - name: Pull Oracle RHEL Database Software
+    include_tasks:
+      file: oracle-db-pull.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: pull_sw  
+
+  - name: Stage Oracle RHEL Database Software
+    include_tasks:
+      file: oracle-db-stage.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: stage_sw   
+
+  - name: Deploy Oracle RHEL Database Software
+    include_tasks:
+      file: oracle-db-sw-deploy.yml
+    when: artifactory_dc is defined and oracle_version is defined
+    tags: deploy_sw
+
+  - name: Build and Configure Oracle Database
+    include_tasks:
+      file: oracle-db-build.yml
+    when: artifactory_dc is defined and oracle_version is defined and oracle_sid is defined
+    tags: build_db   

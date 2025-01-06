@@ -1,0 +1,44 @@
+# Author: KIroha
+# ans-ems-oracle-lnx-cli
+# Main file for oracle-client 
+---
+  - name: Common Vars
+    include_role:
+      name: common
+      public: yes
+      defaults_from: main.yml
+      vars_from: required-packages.yml  
+  
+  - name: Facts
+    include_tasks:
+      file: oracle-cli-fact.yml
+
+  - name: Deploy Oracle RPM 
+    include_tasks:
+      file: oracle-cli-rpm.yml
+    when: update_rpm|bool
+    tags: deploy_rpm   
+  
+  - name: Configure Oracle User Env
+    include_tasks:
+      file: oracle-cli-env.yml
+    when: artifactory_dc is defined and oracle_version is defined and cli_install_loc is defined
+    tags: config_env
+
+  - name: Pull Oracle Linux Client Binary
+    include_tasks:
+      file: oracle-cli-pull.yml
+    when: artifactory_dc is defined and oracle_version is defined and cli_install_loc is defined
+    tags: pull_sw
+
+  - name: Stage Oracle Linux Client Binary
+    include_tasks:
+      file: oracle-cli-stage.yml
+    when: artifactory_dc is defined and oracle_version is defined and cli_install_loc is defined
+    tags: stage_sw
+
+  - name: Deploy Oracle Linux Client
+    include_tasks:
+      file: oracle-cli-deploy.yml
+    when: artifactory_dc is defined and oracle_version is defined and cli_install_loc is defined
+    tags: deploy_sw

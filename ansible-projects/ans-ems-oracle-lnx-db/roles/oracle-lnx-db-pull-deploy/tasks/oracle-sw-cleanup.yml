@@ -1,0 +1,126 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Cleanup database configuration
+---
+  - name: "Remove AHF"
+    become_user: "{{ oracle_owner }}"
+    shell:
+      cmd: |
+        export ahf_home="{{ ora_tool_dir.ahf_dir }}/oracle.ahf"
+        "{{ ora_tool_dir.ahf_dir }}/oracle.ahf/ahf/bin/uninstallahf.sh -local -silent -deleterepo"
+    args:
+      executable: /bin/sh
+    register: ahf_drop
+    ignore_errors: yes 
+  - debug:
+      msg: "{{ ahf_drop.stdout_lines }}" 
+    ignore_errors: yes   
+
+  - name: "Drop Database {{ oracle_sid }}"
+    become_user: "{{ oracle_owner }}"
+    shell: 
+      cmd: |
+        export ORACLE_SID={{ oracle_sid }}
+        export ORACLE_HOME={{ oracle_home }}
+        {{ oracle_home }}/bin/lsnrctl stop
+        {{ oracle_home }}/bin/dbca -silent -deleteDatabase -sourceDB {{ oracle_sid }} -sysDBAUserName SYS -sysDBAPassword {{ syspass }}
+    args:
+      executable: /bin/sh
+    register: db_drop
+    ignore_errors: yes
+  - debug:
+      msg: "{{ db_drop.stdout_lines }}"
+    ignore_errors: yes
+
+  - name: Get Agent Version
+    become_user: "{{ oracle_owner }}"
+    shell:
+      cmd: >
+        {{ ora_inst_dir.bin_dir }}/Agent13c/agent_inst/bin/emctl status agent | grep "Agent Version" | awk -F ': ' '{print $2}'
+    args:
+      executable: /bin/sh
+    register: agt_ver_fact
+    ignore_errors: yes
+
+  - name: Get Agent Binary
+    become_user: "{{ oracle_owner }}"
+    shell:
+      cmd: >
+        {{ ora_inst_dir.bin_dir }}/Agent13c/agent_inst/bin/emctl status agent | grep "Agent Binaries" | awk -F ': ' '{print $2}'
+    args:
+      executable: /bin/sh
+    register: agt_bin_fact
+    ignore_errors: yes    
+
+  - set_fact:
+      em13c_agt_ver: "{{ agt_ver_fact.stdout }}"
+      em13c_agt_dir: "{{ agt_bin_fact.stdout }}"
+      cacheable: no
+    ignore_errors: yes
+  - debug:
+      msg:
+        - "Agent Version is: {{ em13c_agt_ver }}"
+        - "Agent Home is: {{ em13c_agt_dir }}"
+    ignore_errors: yes
+
+  - set_fact:
+      em13c_java_home: "{{ em13c_agt_dir }}/oracle_common/jdk"
+      cacheable: no
+    ignore_errors: yes
+  - debug:
+      msg:
+        - "Agent JAVA HOME is: {{ em13c_java_home }}"
+
+  - name: "Delete Agent and Targets"
+    become_user: "{{ oracle_owner }}"
+    shell:
+      cmd: |
+        export JAVA_HOME={{ em13c_java_home }}
+        {{ em13c_agt_dir }}/bin/emctl stop agent
+        ./emcli login -username=sysman -password={{ emsys_pw }}
+        ./emcli delete_target -name="`hostname -f`:3872" -type="oracle_emd" -delete_monitored_targets
+        {{ em13c_agt_dir }}/perl/bin/perl {{ em13c_agt_dir }}/sysman/install/AgentDeinstall.pl -agentHome {{ em13c_agt_dir }}
+    args:
+      executable: /bin/sh
+      chdir: "{{ agt_inst_dir.em_dir }}"
+    register: agt_target_del
+    when:
+      - em13c_agt_ver is defined
+      - em13c_agt_dir is defined
+    ignore_errors: yes
+  - debug:
+      msg: "{{ agt_target_del.stdout_lines }}"
+    ignore_errors: yes
+
+  - name: Remove Oracle Directories
+    file:
+      path: "{{ item.value }}"
+      state: absent
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_inst_dir }}"
+    #when: db_drop.rc == 0
+    register: clean_dir1  
+    ignore_errors: yes 
+
+  - name: Remove Database Directories
+    file:
+      path: "{{ item.value }}"
+      state: absent
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_inst_dir_sid }}"
+    #when: db_drop.rc == 0
+    register: clean_dir2  
+    ignore_errors: yes 
+
+  - name: Remove Tool Directories
+    file:
+      path: "{{ item.value }}"
+      state: absent
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+    with_dict: "{{ ora_tool_dir }}"
+    #when: db_drop.rc == 0
+    register: clean_dir3  
+    ignore_errors: yes     

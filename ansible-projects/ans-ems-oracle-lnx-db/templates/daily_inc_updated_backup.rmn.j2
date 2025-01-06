@@ -1,0 +1,18 @@
+spool log to '{{ ora_tool_dir.script_dir }}/{{ oracle_sid }}_daily_inc_updated_backup.log' APPEND;
+run {
+crosscheck backup;
+crosscheck copy of database;
+crosscheck archivelog all;
+delete noprompt expired backup;
+delete noprompt expired copy of database;
+delete noprompt expired archivelog all;
+delete noprompt obsolete;
+allocate channel c1 type disk;
+allocate channel c2 type disk;
+backup check logical as compressed backupset incremental level 1 copies=1 for recover of copy with tag 'LVL0_MERGE_INCR' database FORMAT '/Fast_Recovery/{{ oracle_sid }}/LVL0_MERGE_INCR_%d_%U_%t_%s';
+recover copy of database with tag 'LVL0_MERGE_INCR' until time \"SYSDATE-3\" from tag 'LVL0_MERGE_INCR';
+backup check logical as compressed backupset archivelog all not backed up 1 times delete input tag 'LVL0_MERGE_INCR' FORMAT '/Fast_Recovery/{{ oracle_sid }}/ARCH_comp_%d_%U_%t_%s';
+delete noprompt obsolete;
+release channel c1;
+release channel c2;
+}

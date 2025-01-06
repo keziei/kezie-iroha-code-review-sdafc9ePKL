@@ -1,0 +1,104 @@
+# Author: Kezie Iroha
+# oracle-lnx-patch-db
+---
+    # Deploy Selected Oracle Software
+    - name: "Check {{ ora_inst_dir.bin_dir }} exists"
+      stat:
+        path: "{{ ora_inst_dir.bin_dir }}"
+      register: bin_dir_chk
+    - debug:
+        msg: "{{ ora_inst_dir.bin_dir }} does not exist"
+      when: bin_dir_chk.stat.isdir == False
+
+    - name: "Check {{ ora_inst_dir.inv_dir }} exists"
+      stat:
+        path: "{{ ora_inst_dir.inv_dir }}"
+      register: inv_dir_chk
+    - debug:
+        msg: "{{ ora_inst_dir.inv_dir }} does not exist"
+      when: inv_dir_chk.stat.isdir == False
+
+    - name: "Checking if Oracle database {{ oracle_version }} installation exists"
+      stat:
+        path: "{{ oracle_home }}/bin/sqlplus"
+      register: oracle_sqlp_chk
+    - debug:
+        msg: "The Oracle software is staged."
+      when: oracle_sqlp_chk.stat.exists
+
+    # Apply Patch Set Update (PSU)  
+    - name: "Updating Opatch Binary: {{ ora_opatch_binary }} in Oracle Home: {{ oracle_home }}"
+      unarchive:
+        src: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+        dest: "{{ oracle_home }}"
+        owner: "{{ oracle_owner }}"
+        group: "{{ oracle_group }}"
+        mode: 0755
+        remote_src: yes
+      loop: "{{ ora_opatch_binary }}"
+      register: update_opatch_chk
+    
+    - shell: 
+        cmd: |
+          echo `find . -mindepth 2 -maxdepth 2 -type d -printf '%P\n'`
+      args:
+        chdir: "{{ ora_tool_dir.latestpsu_dir }}"
+        executable: /bin/sh          
+      register: lpsu_patch_fnd
+    - set_fact:
+        patch_topdir: "{{ lpsu_patch_fnd.stdout.split() }}"
+    - debug:
+       msg: 
+         - "Oracle 11G Patching will be skipped by Ansible but can be attempted manually by the DBA"
+         - "Note the following bug which occurs while patching Oracle 11G:"
+         - "Relink Fails for make target jox_refresh_knlopt with Oracle JavaVM Component Database PSU (Doc ID 1933203.1)"
+      when: oracle_version == '11G'
+
+    - name: "Applying {{ oracle_version }} Patch Set Update"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: |
+          {{ oracle_home }}/OPatch/opatch apply {{ ora_opatch_parm }}
+      args:
+        chdir: "{{ ora_tool_dir.latestpsu_dir }}/{{ item }}"
+        executable: /bin/sh          
+      loop: "{{ patch_topdir }}"
+      register: patch_apply
+      when: oracle_version != '11G'
+      changed_when: patch_apply.rc == 0
+      failed_when: patch_apply.rc != 0
+      ignore_errors: yes
+
+    # Deploy Tools
+    - stat:
+        path: "{{ ora_tool_dir.ahf_dir }}/ahf_setup"
+      register: ahf_chk
+    - stat:
+        path: "{{ ora_tool_dir.ahf_dir }}/oracle.ahf/bin/tfactl"
+      register: ahf_chk_bin
+
+    - name: "Deinstall AHF"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.ahf_dir }}/oracle.ahf/bin/tfactl uninstall -local -silent
+      args:
+        executable: /bin/sh          
+      register: ahf_deinst
+      when: ahf_chk_bin.stat.exists
+      changed_when: ahf_deinst.rc == 0
+      failed_when: "(ahf_deinst.stdout_lines is not defined)"
+      ignore_errors: yes
+
+    - name: "Installing Oracle AHF Software to {{ ora_tool_dir.ahf_dir }}"
+      become_user: "{{ oracle_owner }}"
+      shell: 
+        cmd: >
+          {{ ora_tool_dir.ahf_dir }}/ahf_setup -ahf_loc {{ ora_tool_dir.ahf_dir }}
+      args:
+        executable: /bin/sh          
+      register: ahf_inst
+      when: ahf_chk.stat.exists
+      changed_when: ahf_inst.rc == 0
+      failed_when: "(ahf_inst.stdout_lines is not defined) or ('AHF is successfully installed' not in ahf_inst.stdout_lines)"
+      ignore_errors: yes

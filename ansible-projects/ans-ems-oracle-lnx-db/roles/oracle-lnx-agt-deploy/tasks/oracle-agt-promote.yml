@@ -1,0 +1,27 @@
+# Author: Kezie Iroha
+# oracle-lnx-agt-deploy
+# Promote Targets
+---
+  - name: Stage EMCLI Script
+    copy:
+      dest: "{{ agt_inst_dir.swloc_dir }}/deploy_emcli_api.sh"
+      src: deploy_emcli_api.sh
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - stat:
+      path: "{{ agt_inst_dir.swloc_dir }}/deploy_emcli_api.sh"
+    register: emcli_file  
+  - name: "Installing EMCLI API Software to {{ agt_inst_dir.em_dir }} and Promoting Agent Targets"
+    become_user: "{{ oracle_owner }}"
+    shell: 
+      cmd: >
+        {{ agt_inst_dir.swloc_dir }}/deploy_emcli_api.sh
+    args:
+      executable: /bin/sh           
+    register: emcli_inst
+    when: emcli_file.stat.exists == true
+    ignore_errors: yes      

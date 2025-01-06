@@ -1,0 +1,586 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Build and Configure Oracle 11G-20C Database Software
+---
+- debug:
+    msg: "Commencing DB Creation. Estimate time: 25 minutes"
+- name: "Creating {{ oracle_version }} Database with Oracle_SID: {{ oracle_sid }}"
+  become_user: "{{ oracle_owner }}"
+  shell: |
+    unset ORACLE_HOME
+    unset ORACLE_BASE
+    unset ORACLE_SID
+    unset TNS_ADMIN
+    {{ oracle_home }}/bin/dbca -silent -responseFile {{ ora_tool_dir.swloc_dir}}/Generic_DB_SI.rsp -createDatabase -templateName {{ ora_tool_dir.swloc_dir}}/Generic_DB_SI.dbt -gdbName {{ oracle_sid }} -sysPassword {{ syspass }} -systemPassword {{ syspass }}
+  register: db_create_result
+  changed_when: db_create_result.rc == 0
+  #failed_when: "(db_create_result.stdout_lines is not defined) or ('Successfully Setup Software.' not in db_create_result.stdout_lines)"
+
+- name: Creating Listener.ora
+  become_user: "{{ oracle_owner }}"
+  template:
+    dest: "{{ oracle_home }}/network/admin/listener.ora"
+    src: listener.ora.j2
+    force: yes
+    owner: "{{ oracle_owner }}"
+    group: "{{ oracle_group }}"
+    mode: 0644
+    backup: yes
+
+- name: Creating Tnsname.ora
+  become_user: "{{ oracle_owner }}"
+  template:
+    dest: "{{ oracle_home }}/network/admin/tnsnames.ora"
+    src: tnsnames.ora.j2
+    force: yes
+    owner: "{{ oracle_owner }}"
+    group: "{{ oracle_group }}"
+    mode: 0644
+    backup: yes
+
+- name: Creating Sqlnet.ora
+  copy:
+    dest: "{{ oracle_home }}/network/admin/sqlnet.ora"
+    src: sqlnet.ora
+    force: yes
+    owner: "{{ oracle_owner }}"
+    group: "{{ oracle_group }}"
+    mode: 0644
+
+- name: "Starting the new oracle listener"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_HOME={{ oracle_home }}    
+      {{ oracle_home }}/bin/lsnrctl start LISTENER
+  args:
+    executable: /bin/sh
+  register: lsn_chk
+
+- name: "Verifying Listener Poisoning fix - VNCR"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/lsnrctl show valid_node_checking_registration
+  args:
+    executable: /bin/sh
+  register: vncr_chk
+
+- debug:
+    msg: "{{ vncr_chk.stdout_lines }}"
+
+- name: "Setting Local Listener"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      Prompt Setting Local Listener
+      alter system set local_listener=LISTENER;
+      alter system register;
+      create pfile from spfile;
+      EOF
+  args:
+    executable: /bin/sh
+  register: lnsloc_chk
+
+- name: "Create Password Complexity"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @ot_ora_complexity_check.sql
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: otc_chk
+
+- name: "Create Password Verification"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @ot_verify_function.sql
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: otv_chk
+
+- name: "Create DB Profiles"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @db_profiles.sql
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: dbprof_chk
+
+- name: "Create DBA Users"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      CREATE USER {{ item }} PROFILE "DEFAULT" IDENTIFIED BY "NotThePassword$" DEFAULT TABLESPACE "USERS" TEMPORARY TABLESPACE "TEMP" PASSWORD EXPIRE ACCOUNT LOCK;
+      GRANT UNLIMITED TABLESPACE TO {{ item }};
+      GRANT "CONNECT" TO {{ item }};
+      GRANT "DBA" TO {{ item }};
+      GRANT "RESOURCE" TO {{ item }};
+      alter user dbsnmp identified by "{{ snmp_pw }}\$R0ck" account unlock;        
+      EOF
+  args:
+    executable: /bin/sh
+  with_items: "{{ dbadmin }}"
+  register: dba_chk
+
+- name: "Create APPADMIN User"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      CREATE USER APPADMIN PROFILE "DEFAULT" IDENTIFIED BY {{ appadmin_pass }} DEFAULT TABLESPACE "USERS" TEMPORARY TABLESPACE "TEMP" PASSWORD EXPIRE;
+      GRANT ALTER ANY OUTLINE TO APPADMIN;  
+      GRANT ALTER USER TO APPADMIN;
+      GRANT ALTER TABLESPACE TO APPADMIN; 
+      GRANT CONNECT TO APPADMIN with admin option;
+      GRANT CREATE ANY OUTLINE TO APPADMIN with admin option;
+      GRANT CREATE CLUSTER TO APPADMIN with admin option;
+      GRANT CREATE INDEXTYPE TO APPADMIN with admin option;
+      GRANT CREATE MATERIALIZED VIEW TO APPADMIN with admin option;
+      GRANT CREATE OPERATOR TO APPADMIN with admin option;
+      GRANT CREATE PROFILE TO APPADMIN with admin option;
+      GRANT CREATE PROCEDURE TO APPADMIN with admin option;
+      GRANT CREATE SEQUENCE TO APPADMIN with admin option;
+      GRANT CREATE SESSION TO APPADMIN with admin option;
+      GRANT CREATE SYNONYM TO APPADMIN with admin option;
+      GRANT CREATE TABLESPACE TO APPADMIN;
+      GRANT CREATE TABLE TO APPADMIN with admin option;
+      GRANT CREATE TRIGGER TO APPADMIN with admin option;
+      GRANT CREATE TYPE TO APPADMIN with admin option;
+      GRANT CREATE USER TO APPADMIN;
+      GRANT CREATE VIEW TO APPADMIN with admin option;
+      GRANT DROP ANY OUTLINE TO APPADMIN;
+      GRANT RESOURCE TO APPADMIN with admin option;
+      GRANT SELECT ANY DICTIONARY TO APPADMIN with admin option;
+      GRANT SET CONTAINER TO APPADMIN with admin option;
+      GRANT UNLIMITED TABLESPACE TO APPADMIN with admin option;
+      GRANT EXECUTE ON sys.DBMS_SQL TO APPADMIN with grant option;
+      GRANT EXECUTE ON sys.DBMS_LOCK TO APPADMIN with grant option;
+      GRANT EXECUTE ON sys.DBMS_METADATA TO APPADMIN with grant option;    
+      GRANT GRANT ANY PRIVILEGE TO APPADMIN;
+      GRANT GRANT ANY OBJECT PRIVILEGE TO APPADMIN;
+      GRANT EXECUTE ANY PROCEDURE TO APPADMIN;
+      EOF
+  args:
+    executable: /bin/sh
+  register: appadmin_chk
+
+- name: "Create Application Schemas"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      prompt Creating bigfile tablespace {{ item }}_DATA 
+      CREATE BIGFILE TABLESPACE {{ item }}_DATA DATAFILE '/U04/{{ oracle_sid }}/oradata/{{ item }}_DATA_01.dbf' SIZE 50M AUTOEXTEND ON NEXT 256M MAXSIZE 100G LOGGING EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;
+      prompt Creating bigfile tablespace {{ item }}_INDEX 
+      CREATE BIGFILE TABLESPACE {{ item }}_INDEX DATAFILE '/U04/{{ oracle_sid }}/oradata/{{ item }}_INDEX_01.dbf' SIZE 50M AUTOEXTEND ON NEXT 256M MAXSIZE 100G LOGGING EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;
+      prompt Application Users
+      CREATE USER {{ item }} PROFILE SERVICE_ACCOUNT IDENTIFIED BY {{ appadmin_pass }} DEFAULT TABLESPACE {{ item }}_DATA TEMPORARY TABLESPACE TEMP QUOTA UNLIMITED ON {{ item }}_DATA QUOTA UNLIMITED ON {{ item }}_INDEX ACCOUNT UNLOCK PASSWORD EXPIRE;
+      prompt Creating {{ item }} Grants
+      GRANT CONNECT TO {{ item }};
+      GRANT RESOURCE TO {{ item }};
+      GRANT CREATE ANY OUTLINE TO {{ item }};
+      GRANT CREATE CLUSTER TO {{ item }};
+      GRANT CREATE INDEXTYPE TO {{ item }};
+      GRANT CREATE MATERIALIZED VIEW TO {{ item }};
+      GRANT CREATE OPERATOR TO {{ item }};
+      GRANT CREATE PROFILE TO {{ item }};
+      GRANT CREATE PROCEDURE TO {{ item }};
+      GRANT CREATE SEQUENCE TO {{ item }};
+      GRANT CREATE SESSION TO {{ item }};
+      GRANT CREATE SYNONYM TO {{ item }};
+      GRANT CREATE TABLE TO {{ item }};
+      GRANT CREATE TRIGGER TO {{ item }};
+      GRANT CREATE TYPE TO {{ item }};
+      GRANT CREATE VIEW TO {{ item }};
+      GRANT SELECT ANY DICTIONARY TO {{ item }};
+      GRANT SET CONTAINER TO {{ item }};
+      GRANT UNLIMITED TABLESPACE TO {{ item }};
+      GRANT EXECUTE ON sys.DBMS_SQL TO {{ item }};
+      GRANT EXECUTE ON sys.DBMS_LOCK TO {{ item }};
+      GRANT EXECUTE ON sys.DBMS_METADATA TO {{ item }};           
+      EOF
+  args:
+    executable: /bin/sh
+  with_items: "{{ app_schemas }}"
+  register: app_schema_chk
+  when: app_schemas is defined
+
+# Removal requested in JIRA: OTDS-9538
+#
+#- name: "Create Application Stat Procedure"
+#  become_user: "{{ oracle_owner }}"
+#  shell:
+#    cmd: |
+#      export ORACLE_SID={{ oracle_sid }}
+#      export ORACLE_HOME={{ oracle_home }}
+#      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+#      CREATE OR REPLACE PROCEDURE {{ item }}.RUN_DBSTAT
+#      AS
+#      BEGIN
+#        /* Activating Function Based Indexes */
+#        FOR REC IN (SELECT DISTINCT TABLE_NAME FROM ALL_IND_EXPRESSIONS WHERE TABLE_OWNER='{{ item }}')
+#        loop
+#            DBMS_STATS.GATHER_TABLE_STATS(ownname=> '{{ item }}', tabname=>''||rec.table_name||'', estimate_percent=>DBMS_STATS.AUTO_SAMPLE_SIZE, method_opt=>'FOR ALL HIDDEN COLUMNS SIZE 1',degree=> DBMS_STATS.AUTO_DEGREE);
+#        end loop;
+#        /* Statistics on the Content Server Schema */
+#        DBMS_STATS.GATHER_SCHEMA_STATS(ownname=>'{{ item }}', estimate_percent=>DBMS_STATS.AUTO_SAMPLE_SIZE,  method_opt=>'FOR ALL COLUMNS SIZE AUTO', degree=> DBMS_STATS.AUTO_DEGREE);
+#        DBMS_OUTPUT.PUT_LINE ('{{ item }} Schema and Function Based Index statistics gathered!');
+#      END;
+#      /
+#      EOF
+#  args:
+#    executable: /bin/sh
+#  with_items: "{{ app_schemas }}"
+#  register: app_proc_chk
+#  when:  app_schemas is defined
+
+- name: "Expire Default SYS Pass"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      alter user sys password expire;
+      alter user system password expire;
+      EOF
+  args:
+    executable: /bin/sh
+  register: expsys_chk
+
+- name: "Run UTLRP"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @utlrp.sql
+      EOF
+  args:
+    chdir: "{{ oracle_home }}/rdbms/admin/"
+    executable: /bin/sh
+  register: utlrp_chk
+
+- name: "Run DB Auto Task Script"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @db_autotask.sql
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: autotask_chk
+
+- name: "Run DB Audit Fix"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @aud_fix.sql
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: audfix_chk
+- debug:
+    msg: "{{ audfix_chk.stdout_lines }}"
+  ignore_errors: yes
+
+- name: "Run DB RMAN Config Script"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/rman "target / nocatalog" <<EOF
+      @rman_config.rmn
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: autotask_chk
+- name: Set Weekly L0 Backup
+  cron:
+    name: Weekly L0 Backup
+    job: "{{ ora_tool_dir.script_dir }}/weekly_inc0_comp_backup_{{ oracle_sid }}.sh"
+    user: oracle
+    minute: 0
+    hour: 2
+    weekday: 0
+    disabled: no
+    state: present
+    backup: yes
+- name: Set Daily L1 Backup
+  cron:
+    name: Daily L1 Backup
+    job: "{{ ora_tool_dir.script_dir }}/daily_inc1_comp_backup_{{ oracle_sid }}.sh"
+    user: oracle
+    minute: 0
+    hour: 2
+    weekday: 1-6
+    disabled: no
+    state: present
+    backup: yes
+- name: Set Archived Log Backup Cron
+  cron:
+    name: Archived Log Backup
+    job: "{{ ora_tool_dir.script_dir }}/arch_backup_{{ oracle_sid }}.sh"
+    user: oracle
+    minute: 0
+    hour: 7,18,20,22
+    disabled: no
+    state: present
+    backup: yes
+
+- debug:
+    msg: "Commencing stats gather. Estimate time: 15 minutes"
+- name: "Run Gather Stats"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @gather_stats.sql
+      EOF
+  args:
+    chdir: "{{ ora_tool_dir.script_dir }}"
+    executable: /bin/sh
+  register: gather_stat_chk
+
+- name: "Set SGA Params"
+  become_user: "{{ oracle_owner }}"
+  shell: >
+    {{ ora_tool_dir.script_dir }}/db_sga.sh
+  args:
+    executable: /bin/sh
+  register: adj_sga
+- debug:
+    msg: "{{ adj_sga.stdout_lines }}"
+  ignore_errors: yes
+
+# Common Pre Post-Patch
+- debug:
+    msg: "Restarting the Database .."
+- name: "Starting in upgrade mode for PSU apply"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      shutdown immediate;
+      startup upgrade;
+      select instance_name, status, database_role, open_mode from v\$database, v\$instance;
+      EOF
+  args:
+    executable: /bin/sh
+  register: db_upgrade
+- debug:
+    msg: "{{ db_upgrade.stdout_lines }}"
+
+# 12C Post Patch
+- debug:
+    msg: "Commencing {{ oracle_version }} Post Patch Configuration"
+  when: oracle_version != '11G'
+- name: "Running Post Patch SQL Install for 12c"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/OPatch/datapatch -verbose
+  args:
+    executable: /bin/sh
+  register: patch_12c
+  when: oracle_version != '11G'
+  ignore_errors: yes
+
+# 11G Post Patch
+- debug:
+    msg: "Commencing 11G Post Patch Configuration"
+  when: oracle_version == '11G_excluded'
+- name: "Running Post Patch SQL Install for 11G DB"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/rdbms/admin/catbundle.sql psu apply
+  args:
+    executable: /bin/sh
+  register: patch_11g_out1
+  when: oracle_version == '11G_excluded'
+  ignore_errors: yes
+- name: "Running Post Patch SQL Install for 11G JAVAVM"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      PATCHGRP=`find /Export/staging/Oracle_Binary/Latest_PSU -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | awk -F '/' '{print $2}'`
+      SQPATCH=`find $ORACLE_HOME/sqlpatch -type d -printf '%P\n' | grep "$PATCHGRP"`
+      SQPATCHNUM=`ls $ORACLE_HOME/sqlpatch | grep "$PATCHGRP" | wc -l`
+      {{ oracle_home }}/sqlpatch/$SQPATCH/postinstall.sql;
+  args:
+    executable: /bin/sh
+  register: patch_11g_out2
+  when: oracle_version == '11G_excluded'
+  ignore_errors: yes
+- debug:
+    msg:
+      - "Check the following log files in {{ oracle_home }}/cfgtoollogs/catbundle or {{ oracle_home }}/cfgtoollogs/catbundle for any errors:"
+      - "catbundle_PSU_<database SID>_APPLY_<TIMESTAMP>.log"
+      - "catbundle_PSU_<database SID>_GENERATE_<TIMESTAMP>.log"
+  when: oracle_version == '11G_excluded'
+
+# Common Post Post-Patch
+- name: "Restarting Database"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      shutdown immediate;
+      startup open;
+      select instance_name, status, database_role, open_mode from v\$database, v\$instance;
+      EOF
+  args:
+    executable: /bin/sh
+  register: db_restart
+- debug:
+    msg: "{{ db_restart.stdout_lines }}"
+- name: "Show Post Patch Status"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/OPatch/opatch lspatches
+  args:
+    executable: /bin/sh
+  register: db_patch_chk
+- debug:
+    msg: "{{ db_patch_chk.stdout_lines }}"
+- name: "Recompiling"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      @{{ oracle_home }}/rdbms/admin/utlrp.sql;
+      @{{ oracle_home }}/rdbms/admin/utlrp.sql;
+      @{{ oracle_home }}/rdbms/admin/utlrp.sql;
+      EOF
+  args:
+    executable: /bin/sh
+  register: db_recomp
+- name: "Invalid Object Verification"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ oracle_home }}/bin/sqlplus -s "/ as sysdba" <<EOF
+      Prompt Invalid DB Objects
+      select count(*) from dba_objects where status != 'VALID';
+      Prompt Invalid DB Registry
+      select count(*) from dba_registry where status ='INVALID';
+      EOF
+  args:
+    executable: /bin/sh
+  register: db_invalid
+- debug:
+    msg: "{{ db_invalid.stdout_lines }}"
+
+- name: Update oratab autostart
+  lineinfile:
+    path: /etc/oratab
+    state: present
+    owner: "{{ oracle_owner }}"
+    group: "{{ oracle_group }}"
+    mode: 0664
+    regexp: "^{{ oracle_sid }}:{{ oracle_home }}:N$"
+    line: "{{ oracle_sid }}:{{ oracle_home }}:Y"
+    backup: yes
+  register: db_oratab
+
+- debug:
+    msg: "Generating Oracle Health Check Report - estimate 8 minutes"
+- name: "Generating Oracle Check Report"
+  become_user: "{{ oracle_owner }}"
+  shell:
+    cmd: |
+      export ORACLE_SID={{ oracle_sid }}
+      export ORACLE_HOME={{ oracle_home }}
+      {{ ora_tool_dir.ahf_dir }}/oracle.ahf/orachk/orachk -silentforce
+  args:
+    executable: /bin/sh
+  register: ora_chk
+  ignore_errors: yes
+- debug:
+    msg: "{{ ora_chk.stdout_lines }}"
+  ignore_errors: yes
+
+- name: "Deploying EMCLI API and Promoting EM13c Targets"
+  become_user: "{{ oracle_owner }}"
+  shell: >
+    {{ ora_tool_dir.script_dir }}/deploy_emcli_api.sh
+  args:
+    executable: /bin/sh
+  #async: 1800
+  #poll: 5
+  register: promo
+  ignore_errors: yes
+- debug:
+    msg: "{{ promo.stdout_lines }}"
+  ignore_errors: yes
+#- name: Wait for EM13c target promotion job to end
+#  become_user: "{{ oracle_owner }}"
+#  async_status:
+#    jid: '{{ promo.ansible_job_id }}'
+#  register: promo_async
+#  until: promo_async.finished
+#  retries: 300
+#- debug:
+#    msg: "{{ promo_async.stdout_lines }}"
+#  ignore_errors: yes

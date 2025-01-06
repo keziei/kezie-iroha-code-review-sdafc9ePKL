@@ -1,0 +1,41 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Playbook for Linux Oracle database command line deploy
+---
+- hosts: "{{ v_host }}"
+  become: yes
+  roles:
+    - role: oracle-lnx-db-pull-deploy
+  vars:
+    # specify cloud artifactory proxy data centre: LIT, AM3
+    artifactory_dc: LIT
+
+    # specify one of 11G, 12CR1, 12CR2, 18C, 19C
+    # 11G - Oracle 11.2.0.4
+    # 12CR1 - Oracle 12.1.0.2
+    # 12CR2 - Oracle 12.2.0.1
+    # 18C - Oracle 18.x.0.0
+    # 19C - Oracle 19.x.0.0
+    oracle_version: 19C
+
+    # Specify the name of the database defined on the CRG
+    oracle_sid: MYDB1
+
+    # List the Oracle DB app schemas defined on the CRG
+    app_schemas:
+      - CSUSR
+
+    # Build size options for Build Ops are NORMAL or SMALL.
+    # Build size for Build Ops is always the NORMAL CRG specification
+    # For GCP LAB you may select SMALL which reduces redo sizing and archived log multiplexing
+    build_size: NORMAL
+
+    # Build type options are STD or UTF8
+    # Build type is always STD (standard build, using AL32UTF8).
+    # On occasion, for specific products a UTF8 build will be specified in the CRG.
+    build_type: STD
+
+    # To destroy a previous database build and re-run the playbook, specify: "cleanup: true"
+    # Ensure that you have specified the correct oracle_sid, oracle_version and host before doing this!
+    # If you do not intend to cleanup the build then leave the parameter commented out
+    # cleanup: true
