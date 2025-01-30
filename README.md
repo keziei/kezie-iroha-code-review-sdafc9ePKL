@@ -55,4 +55,3 @@ This repository is licensed under the [LICENSE](./LICENSE) file included in the 
 ---
 
 Thank you for reviewing my work. I look forward to discussing how my skills align with your requirements.
-=======
