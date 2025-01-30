@@ -1,0 +1,18 @@
+spool log to '{{ ora_tool_dir.script_dir }}/{{ oracle_sid }}_rman_arch_comp.log' APPEND;
+run {
+crosscheck backupset;
+crosscheck archivelog all;
+delete noprompt expired backup;
+delete noprompt expired archivelog all;
+delete noprompt archivelog all backed up 1 times to disk;
+delete noprompt obsolete;
+allocate channel ch01 type DISK;
+backup as compressed backupset archivelog all format '/Fast_Recovery/{{ oracle_sid }}/ARCH_comp_%d_%U_%t_%s' delete all input;
+crosscheck backupset;
+crosscheck archivelog all;
+delete noprompt expired backup;
+delete noprompt expired archivelog all;
+delete noprompt archivelog all backed up 1 times to disk;
+delete noprompt obsolete;
+release channel ch01;
+}

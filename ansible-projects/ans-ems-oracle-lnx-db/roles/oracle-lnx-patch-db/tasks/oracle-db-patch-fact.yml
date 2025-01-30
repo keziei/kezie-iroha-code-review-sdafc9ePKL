@@ -1,0 +1,90 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# oracle-db-facts
+---
+#  - set_fact:
+#      artifactory_url: "{{ item.value }}"
+#      cacheable: no
+#    loop: "{{ lookup('dict', cloud_artifact) }}"
+#    when: artifactory_dc is defined and artifactory_dc in item.key
+
+- shell: >
+    grep -v '^\(Agent\|agent\|#\|*\|$\)' /etc/oratab | awk -F ':' '{print $1}'
+  register: get_ora_sid
+- set_fact:
+    oracle_sid: "{{ get_ora_sid.stdout_lines }}"
+    cacheable: no
+
+- set_fact:
+    ora_db_binary: "{{ item.value.db_bin }}"
+    ora_opatch_binary: "{{ item.value.opatch_bin }}"
+    ora_version: "{{ item.value.path }}"
+    ora_home_name: "{{ item.value.home }}"
+    ora_db_artifactory: "{{ item.value.artifactory_path }}"
+    ora_compatible: "{{ item.value.compatible }}"
+    ora_template: "{{ item.value.template }}"
+    ora_sw_installer: "{{ item.value.installer_loc }}"
+    ora_sw_parm: "{{ item.value.installer_parm }}"
+    ora_sw_parm_rhel8: "{{ item.value.installer_parm_rhel8 }}"
+    ora_stage_dir: "{{ item.value.stage_dir }}"
+    ora_opatch_parm: "{{ item.value.opatch_parm }}"
+    ora_db_rhel8_base_bin: "{{ item.value.rhel8_base_bin }}"
+    ora_db_psu_base_bin: "{{ item.value.psu_base_bin }}"
+    cacheable: no
+  with_dict: "{{ oracle_db }}"
+  when: oracle_version is defined and oracle_version in item.key
+
+- set_fact:
+    oracle_home: "{{ ora_inst_dir.bin_dir }}/{{ ora_version }}/db_1"
+    oracle_base: "{{ ora_inst_dir.base_dir }}"
+  when: oracle_version is defined
+
+- set_fact:
+    ora_redo_kb: "{{ item.value.redo_size_kb }}"
+    cacheable: no
+  with_dict: "{{ db_size }}"
+  when: build_size is defined and build_size in item.key
+
+- set_fact:
+    ora_charset: "{{ item.value.characterSet }}"
+    ora_ncharset: "{{ item.value.nationalCharacterSet }}"
+    ora_recycle: "{{ item.value.recyclebin }}"
+    cacheable: no
+  with_dict: "{{ db_charset }}"
+  when: build_type is defined and build_type in item.key
+
+  # Could not get this from ansible_facts.ansible_fqdn
+- shell: >
+    hostname -f
+  register: host_fqdn_chk
+- set_fact:
+    ora_host_fqdn: "{{ host_fqdn_chk.stdout_lines }}"
+    cacheable: no
+
+- set_fact:
+    srvloc: EU
+    cacheable: no
+  when: ansible_fqdn is search(".eu")
+  #when: ( ansible_fqdn.split('.') [4] ) == 'eu'
+
+- set_fact:
+    srvloc: NA
+    cacheable: no
+  when: ansible_fqdn is search(".com")
+  #when: ( ansible_fqdn.split('.') [4] ) == 'com'
+
+- set_fact:
+    srvrole: PROD
+    emcli_pw: "NotThePassword"
+  when: ansible_hostname.split('-')[2][:1] in prod_host
+
+- set_fact:
+    srvrole: DEV
+    emcli_pw: "QANotThePassword"
+  when: ansible_hostname.split('-')[2][:1] in non_prod_host
+
+- set_fact:
+    v_http_proxy: "{{ item.value.http }}"
+    v_https_proxy: "{{ item.value.https }}"
+  with_dict: "{{ cloud_artifact }}"
+  when: artifactory_dc in item.key

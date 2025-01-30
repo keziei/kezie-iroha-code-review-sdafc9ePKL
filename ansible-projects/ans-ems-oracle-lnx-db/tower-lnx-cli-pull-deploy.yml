@@ -1,0 +1,9 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-cli
+# Playbook for Ansible Tower Oracle Client Deploy
+---
+- hosts: "{{ v_host }}"
+  become: yes
+  roles:
+    - role: oracle-lnx-cli-pull-deploy
+

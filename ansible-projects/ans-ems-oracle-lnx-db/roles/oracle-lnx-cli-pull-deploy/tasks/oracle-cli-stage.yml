@@ -1,0 +1,60 @@
+# Author: KIroha
+# ans-ems-oracle-lnx-cli
+# Deploy Oracle 19c client 
+---
+  - name: "Staging Oracle Binary {{ ora_cli_binary }} to {{ ora_cli_bin_stage_dir }}"
+    unarchive:
+      remote_src: yes    
+      src: "{{ cli_base_dir }}/{{ item }}"
+      dest: "{{ ora_cli_bin_stage_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      #copy: true
+    loop: "{{ ora_cli_binary }}"
+
+  - name: "Pre-Stage Opatch Binary: {{ ora_opatch_binary }} in Oracle Home: {{ oracle_home }}"
+    unarchive:
+      src: "{{ cli_base_dir }}/{{ item }}"
+      dest: "{{ ora_cli_bin_stage_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    loop: "{{ ora_opatch_binary }}"
+    register: pre_update_opatch_chk
+    when:  oracle_version in ['19C']  
+
+  - name: Find Latest PSU
+    find: paths="{{ cli_latestpsu_dir }}" patterns="*.zip"
+    register: find_latest_psu
+  - name: "Unzipping Latest PSU to {{ cli_latestpsu_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ cli_latestpsu_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_latest_psu.files }}"
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] != "8"
+      - oracle_version in ['19C'] 
+
+  - name: Find RHEL8 Patches
+    find: paths="{{ rhel8_cli_psu_dir }}" patterns="*.zip"
+    register: find_rhel8_db_patches
+  - name: "Unzipping RHEL8 Patches to {{ rhel8_cli_psu_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ rhel8_cli_psu_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_rhel8_db_patches.files }}"
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - oracle_version in ['19C'] 

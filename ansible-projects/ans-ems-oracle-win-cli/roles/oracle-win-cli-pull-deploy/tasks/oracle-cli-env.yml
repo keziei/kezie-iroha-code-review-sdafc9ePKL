@@ -1,0 +1,57 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+# Stage Oracle client
+---
+#  - name: Add Oracle Inventory to Registry
+#    win_regedit:
+#      path: HKLM:\SOFTWARE\ORACLE
+#      name: inst_loc
+#      data: 'C:\Program Files\Oracle\Inventory'
+#      type: string
+#      state: present
+#    tags:
+#      - stage-dbclient-binary
+
+#  - name: "Create directory {{ oracle_app_dir }}"
+#    win_file:
+#      path: "{{ oracle_app_dir }}"
+#      state: directory
+#    tags:
+
+  - name: "Create directory {{ ora_pull_dir }}"
+    win_file:
+      path: "{{ ora_pull_dir }}"
+      state: directory
+
+  - name: "Create directory {{ ora_stage_dir }}"
+    win_file:
+      path: "{{ ora_stage_dir }}"
+      state: directory
+
+  - name: "Create directory {{ oracle_inv_dir }}"
+    win_file:
+      path: "{{ oracle_inv_dir }}"
+      state: directory
+
+  - name: "Create directory {{ oracle_home }}"
+    win_file:
+      path: "{{ oracle_home }}"
+      state: directory
+
+  - name: Create Client Response
+    win_template:
+      dest: '{{ ora_pull_dir }}\oracle_cli.rsp'
+      src: oracle_cli.rsp.j2
+      force: yes
+
+  - name: Create Client Install Bat file
+    win_template:
+      dest: '{{ ora_pull_dir }}\oracle_cli_inst.bat'
+      src: oracle_cli_inst.bat.j2
+      force: yes
+
+  - name: Create Client DeInstall Bat file
+    win_template:
+      dest: '{{ ora_pull_dir }}\oracle_cli_rem.bat'
+      src: oracle_cli_rem.bat.j2
+      force: yes

@@ -1,0 +1,9 @@
+---
+# defaults vars file for ansible-win-oracle-cli
+# Tower vars
+host_name: "{{ v_host }}"
+dbclients:
+  - ora_sid: "{{ oracle_sid }}"
+    ora_fqdn: "{{ oracle_fqdn }}"
+install_loc: "{{ v_install_loc }}"
+remove_existing_client: "no"

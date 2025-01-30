@@ -1,0 +1,42 @@
+{% if oracle_version == '19C' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v19.0.0
+{% elif oracle_version == '18C' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v18.0.0
+{% elif oracle_version == '12CR2' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v12.2.0
+{% elif oracle_version == '12CR1' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v12.1.0
+{% elif oracle_version == '11G' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_dbinstall_response_schema_v11_2_0
+{% else %}
+{% endif %}
+
+oracle.install.option=INSTALL_DB_SWONLY
+ORACLE_HOSTNAME={{ ansible_fqdn }}
+UNIX_GROUP_NAME={{ oracle_group }}
+INVENTORY_LOCATION={{ ora_inst_dir.inv_dir }}
+ORACLE_HOME={{ oracle_home }}
+ORACLE_BASE={{ ora_inst_dir.base_dir }}
+oracle.install.db.InstallEdition=EE
+{% if oracle_version in ['11G','12CR1'] %}
+oracle.install.db.DBA_GROUP={{ oracle_sub_group }}
+{% else %}
+oracle.install.db.OSDBA_GROUP={{ oracle_sub_group }}
+{% endif %}
+oracle.install.db.OPER_GROUP={{ oracle_sub_group }}
+{% if oracle_version == '12CR1' %}
+oracle.install.db.BACKUPDBA_GROUP={{ oracle_sub_group }}
+oracle.install.db.DGDBA_GROUP={{ oracle_sub_group }}
+oracle.install.db.KMDBA_GROUP={{ oracle_sub_group }}
+{% elif oracle_version in ['12CR2','18C','19C'] %}
+oracle.install.db.OSBACKUPDBA_GROUP={{ oracle_sub_group }}
+oracle.install.db.OSDGDBA_GROUP={{ oracle_sub_group }}
+oracle.install.db.OSKMDBA_GROUP={{ oracle_sub_group }}
+{% else %}
+{% endif %}
+{% if oracle_version in ['12CR2','18C','19C'] %}
+oracle.install.db.OSRACDBA_GROUP={{ oracle_sub_group }}
+{% else %}
+{% endif %}
+DECLINE_SECURITY_UPDATES=true
+oracle.installer.autoupdates.option=SKIP_UPDATES

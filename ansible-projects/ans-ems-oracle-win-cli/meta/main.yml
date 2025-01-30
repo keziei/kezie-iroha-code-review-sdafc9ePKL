@@ -1,0 +1,6 @@
+galaxy_info:
+  author: Kezie Iroha
+  description: ansible-win-oracle-cli
+  company: kiroha
+
+  min_ansible_version: 2.7.9

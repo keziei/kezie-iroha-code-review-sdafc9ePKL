@@ -1,0 +1,27 @@
+# Author: Kezie Iroha
+# oracle-lnx-agt-deploy
+# EM Agent Root
+---
+  - name: Create EM13c Agent Root Script
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ agt_inst_dir.swloc_dir }}/deploy_agent_root.sh"
+      src: deploy_agent_root.sh.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      backup: yes
+
+  - stat:
+      path: "{{ agt_inst_dir.swloc_dir }}/deploy_agent_root.sh"
+    register: agtroot_file  
+  - name: "Running EM13c Agent Root Script"
+    shell: 
+      cmd: >
+        {{ agt_inst_dir.swloc_dir }}/deploy_agent_root.sh
+    args:
+      executable: /bin/sh           
+    register: agtroot_inst
+    when: agtroot_file.stat.exists == true
+    ignore_errors: yes      

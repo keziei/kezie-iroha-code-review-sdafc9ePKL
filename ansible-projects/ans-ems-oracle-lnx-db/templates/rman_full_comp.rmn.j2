@@ -1,0 +1,20 @@
+spool log to '{{ ora_tool_dir.script_dir }}/{{ oracle_sid }}_full_compressed.log' APPEND;
+run {
+crosscheck backupset;
+crosscheck archivelog all;
+delete noprompt expired backup;
+delete noprompt expired archivelog all;
+delete noprompt archivelog all completed before 'SYSDATE-3';
+delete noprompt obsolete;
+allocate channel ch01 type DISK;
+backup as compressed backupset database format '/Fast_Recovery/{{ oracle_sid }}/DB_comp_%d_%U_%t_%s' plus archivelog format '/Fast_Recovery/{{ oracle_sid }}/ARCH_comp_%d_%U_%t_%s';
+release channel ch01;
+backup current controlfile format '/Fast_Recovery/{{ oracle_sid }}/CFPRIM_comp_%d_%U_%t_%s';
+backup current controlfile for standby format '/Fast_Recovery/{{ oracle_sid }}/CFSTBY_comp_%d_%U_%t_%s';
+crosscheck backupset;
+crosscheck archivelog all;
+delete noprompt expired backup;
+delete noprompt expired archivelog all;
+delete noprompt archivelog all completed before 'SYSDATE-3';
+delete noprompt obsolete;
+}

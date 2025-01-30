@@ -1,0 +1,93 @@
+# Author: KIroha
+# ans-ems-oracle-lnx-cli 
+# Fetch Oracle Binary
+---
+  - name: HTTP Proxy Test
+    become_user: oracle  
+    get_url:
+      url: "{{ v_http_proxy }}"
+      dest: "{{ cli_base_dir }}"
+      force: True
+      timeout: 300
+    register: http_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ http_output.status_code }}"
+
+  - name: HTTPS Proxy Test
+    become_user: oracle  
+    get_url:
+      url: "{{ v_https_proxy }}"
+      dest: "{{ cli_base_dir }}"
+      force: True
+      timeout: 300
+    register: https_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ https_output.status_code }}"
+      
+  - set_fact:
+      artifactory_url: "{{ v_https_proxy }}/{{ artifactory_repo }}"
+    when: https_output.status_code == 200
+  - set_fact:
+      artifactory_url: "{{ v_http_proxy }}/{{ artifactory_repo }}"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code == 200 )
+  - debug:
+      msg: "The selected Artifactory URL is: {{ artifactory_url }}"
+  - debug:
+      msg: "Could not connect to {{ artifactory_dc }} http or https artifactory proxy"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code != 200 )    
+
+  - name: Pull Oracle {{ ora_cli_version }} Client Binary
+    become_user: oracle
+    get_url:
+      dest: "{{ cli_base_dir }}"
+      url: "{{ artifactory_url }}/{{ artifact_cli_bin }}/{{ item }}"
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      timeout: 300
+    loop: "{{ ora_cli_binary }}"
+    tags: pull-dbclient-binary
+
+  # Fetch OPatch Binaries
+  - stat:
+      path: "{{ cli_base_dir }}/{{ item }}"
+    loop: "{{ ora_opatch_binary }}"
+    register: ora_opatch_binary_chk
+
+  - name: "Fetching Oracle {{ ora_cli_version }} OPatch Binary from: {{ artifactory_url }}/{{ artifact_db_opatch_ver }}"
+    become_user: oracle
+    get_url:
+      dest: "{{ cli_base_dir }}"
+      tmp_dest: "{{ cli_base_dir }}"
+      url: "{{ artifactory_url }}/{{ artifact_db_opatch_ver }}/{{ item }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      timeout: 300
+    loop: "{{ ora_opatch_binary }}"
+    register: opatch_fetch
+
+  - name: "Fetching Oracle {{ ora_cli_version }} PSU from: {{ artifactory_url }}/{{ artifact_db_latest_psu }}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_latest_psu }}
+    args:
+      chdir: "{{ cli_base_dir }}"
+      warn: false
+    register: latest_psu_fetch
+
+    #wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_rhel8_bin }}/{{ ora_db_rhel8_base_bin }}
+  - name: "Fetching {{ artifactory_url }}/{{ artifact_db_rhel8_bin }}"
+    become_user: "{{ oracle_owner }}"
+    shell: |
+      wget -e robots=off -r --no-parent -nH --cut-dirs=6 --proxy=off -N --read-timeout=300 --tries=3 {{ artifactory_url }}/{{ artifact_db_rhel8_bin }}
+    args:
+      chdir: "{{ cli_base_dir }}"
+      warn: false
+    register: rhel8_psu_fetch    
+    when:
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"        

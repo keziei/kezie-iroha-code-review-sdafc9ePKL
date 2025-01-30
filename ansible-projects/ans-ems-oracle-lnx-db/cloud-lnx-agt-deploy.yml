@@ -1,0 +1,21 @@
+# Author: Kezie Iroha
+# oracle-lnx-agt-deploy
+# Playbook for Linux Oracle Agent command line deploy
+---
+- hosts: "{{ v_host }}"
+  become: yes
+  roles:
+    - role: oracle-lnx-agt-deploy
+  vars:
+    # specify cloud artifactory proxy data centre: LIT (NA), AM3 (EU)
+    artifactory_dc: LIT 
+
+    # Perform a new agent installation yes/no?
+    agt_install: yes/no
+
+    # Run Agent Root script only on an existing installation which has been upgraded yes/no?
+    root_only: yes/no
+
+    # Default Agent location is /U01/app/oracle/product/Agent13c
+    # Specify an alternative agent location if required
+    agent_install_dir: /U01/app/oracle/product/Agent13c

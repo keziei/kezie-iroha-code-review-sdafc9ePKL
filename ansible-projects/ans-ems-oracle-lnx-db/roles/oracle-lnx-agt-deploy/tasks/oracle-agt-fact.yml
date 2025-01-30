@@ -1,0 +1,39 @@
+# Author: Kezie Iroha
+# oracle-lnx-agt-deploy
+# oracle-agt-facts
+---
+# Could not get this from ansible_facts.ansible_fqdn
+- shell: >
+    hostname -f
+  register: host_fqdn_chk
+- set_fact:
+    ora_host_fqdn: "{{ host_fqdn_chk.stdout_lines }}"
+    cacheable: no
+
+- set_fact:
+    srvloc: EU
+    cacheable: no
+  when: ansible_fqdn is search(".eu")
+  #when: ( ansible_fqdn.split('.') [4] ) == 'eu'
+
+- set_fact:
+    srvloc: NA
+    cacheable: no
+  when: ansible_fqdn is search(".com")
+  #when: ( ansible_fqdn.split('.') [4] ) == 'com'
+
+- set_fact:
+    srvrole: PROD
+    emcli_pw: "NotThePassword"
+  when: ansible_hostname.split('-')[2][:1] in prod_host
+
+- set_fact:
+    srvrole: DEV
+    emcli_pw: "QANotThePassword"
+  when: ansible_hostname.split('-')[2][:1] in non_prod_host
+
+- set_fact:
+    v_http_proxy: "{{ item.value.http }}"
+    v_https_proxy: "{{ item.value.https }}"
+  with_dict: "{{ cloud_artifact }}"
+  when: artifactory_dc in item.key

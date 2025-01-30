@@ -1,0 +1,19 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Playbook for Oracle database patching command line deploy
+---
+- hosts: lit-sf47dbo-t02.sf47.cloud.kiroha.com
+  become: yes
+  roles:
+    - role: oracle-lnx-patch-db
+  vars:
+    # specify cloud artifactory proxy data centre: LIT, AM3
+    artifactory_dc: LIT
+
+    # specify one of 11G, 12CR1, 12CR2, 18C, 19C
+    # 11G - Oracle 11.2.0.4
+    # 12CR1 - Oracle 12.1.0.2
+    # 12CR2 - Oracle 12.2.0.1
+    # 18C - Oracle 18.x.0.0
+    # 19C - Oracle 19.x.0.0
+    oracle_version: 19C

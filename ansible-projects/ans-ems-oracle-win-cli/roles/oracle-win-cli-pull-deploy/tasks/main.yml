@@ -1,0 +1,25 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+# Main file for oracle-client
+---
+  - name: Facts
+    include_tasks:
+      file: oracle-cli-fact.yml
+
+  - name: Create Oracle Windows Client Env
+    include_tasks:
+      file: oracle-cli-env.yml
+    when: artifactory_dc is defined and oracle_version is defined and install_loc is defined
+    tags: env_cli
+    
+  - name: Pull Oracle Windows Client Binary
+    include_tasks:
+      file: oracle-cli-pull.yml
+    when: artifactory_dc is defined and oracle_version is defined and install_loc is defined
+    tags: pull_cli
+
+  - name: Deploy Oracle Windows Client
+    include_tasks:
+      file: oracle-cli-deploy.yml
+    when: artifactory_dc is defined and oracle_version is defined and install_loc is defined
+    tags: deploy_cli

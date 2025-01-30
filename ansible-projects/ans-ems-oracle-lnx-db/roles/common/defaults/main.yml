@@ -1,0 +1,355 @@
+# Author: Kezie Iroha
+# ans-ems-oracle-lnx-db
+# Common Vars used for Oracle Database and Client Deployment
+---
+# Tower Vars
+host_name: "{{v_host}}"
+update_rpm: "no"
+cleanup: "no"
+em13c_loc:
+  nadev: https://lit-d01.cloud.kiroha.com
+  naprod: https://lit-p01.cloud.kiroha.com
+  eudev: https://am3-d01.cloud.kiroha.eu
+  euprod: https://am3-p01.cloud.kiroha.eu
+
+# Artifactory repositories
+cloud_artifact:
+  OT: 
+    http: http://artifactory.net
+    https: https://artifactory.net:443
+  LIT: 
+    http: http://lit-artifactory.net:8081
+    https: https://lit-artifactory.net:8443
+  AM3: 
+    http: http://am3-artifactory.eu:8081
+    https: https://am3-artifactory.eu
+
+non_prod_host:
+  - a
+  - b 
+  - d 
+  - l 
+  - m 
+  - q 
+  - r 
+  - s 
+  - t
+  - x 
+  - y 
+  - z
+
+prod_host:
+  - p
+
+artifactory_repo: 'artifactory/cloud-ops-dba-local/' 
+artifact_cli_bin: "Oracle_Binary_Client"
+artifact_db_bin: "Oracle_Binary_DB"
+artifact_db_bin_ver: "Oracle_Binary_DB/{{ ora_db_artifactory }}/"
+artifact_db_opatch_ver: "Oracle_Binary_OPatch/RHEL/{{ ora_db_artifactory }}/"
+artifact_db_latest_psu: "Oracle_Binary_PSU/RHEL/{{ ora_db_artifactory }}/Latest/"
+artifact_db_other_patches: "Oracle_Binary_PSU/RHEL/{{ ora_db_artifactory }}/Other_Patches/"
+artifact_db_rhel8_bin: "Oracle_Binary_PSU/RHEL/{{ ora_db_artifactory }}/RHEL8_RDBMS_DNC/"
+artifact_db_psu_archive: "Oracle_Binary_PSU/RHEL/{{ ora_db_artifactory }}/PSU_Archive/"
+artifact_tools: Oracle_Tools
+oracle_owner: oracle
+oracle_group: oinstall
+oracle_sub_group: dba
+oracle_pw: "NotThePassword"
+syspass: "NotThePassword"
+appadmin_pass: "Temp7Change7Me#"
+oracle_home_dir: /home/oracle
+
+agent_install_dir: /U01/app/oracle/product/Agent13c
+agt_inst_dir:
+  swloc_dir: /Export/staging/Oracle_Binary
+  em_dir: /Export/staging/DBA_TOOLS/EMCLI
+  install_dir: "{{ agent_install_dir }}"
+
+ora_inst_dir:
+  app_dir: /U01/app
+  base_dir: /U01/app/oracle
+  bin_dir: /U01/app/oracle/product
+  inv_dir: /U01/app/oraInventory
+
+ora_tool_dir:
+  swloc_dir: /Export/staging/Oracle_Binary
+  rda_dir: /Export/staging/DBA_TOOLS/RDA
+  ahf_dir: /Export/staging/DBA_TOOLS/AHF
+  em_dir: /Export/staging/DBA_TOOLS/EMCLI
+  sqlhc_dir: /Export/staging/DBA_TOOLS/SQLHC
+  script_dir: /Export/staging/DBA_TOOLS/dba_scripts
+  dbtools_dir: /Export/staging/DBA_TOOLS
+  bin_staged_dir: /Export/staging/Oracle_Binary/database
+  rhel8_db_psu_dir: /Export/staging/Oracle_Binary/RHEL8_RDBMS_DNC
+  latestpsu_dir: /Export/staging/Oracle_Binary/Latest
+  otherpatch_dir: /Export/staging/Oracle_Binary/Other_Patches
+  
+ora_inst_dir_sid:
+  u01_sid: "/U01/{{ oracle_sid }}"
+  u02_sid: "/U02/{{ oracle_sid }}"
+  u03_sid: "/U03/{{ oracle_sid }}"
+  u04_sid: "/U04/{{ oracle_sid }}"
+  u05_sid: "/U05/{{ oracle_sid }}"
+  u06_sid: "/U06/{{ oracle_sid }}"
+  exp_sid: "/Export/{{ oracle_sid }}"
+  fra_sid: "/Fast_Recovery/{{ oracle_sid }}"
+  db_cntrl1: "/U01/{{ oracle_sid }}/cntrl"
+  db_cntrl2: "/U02/{{ oracle_sid }}/cntrl"
+  db_cntrl3: "/U03/{{ oracle_sid }}/cntrl"
+  db_redo1: "/U02/{{ oracle_sid }}/redo"
+  db_redo2: "/U03/{{ oracle_sid }}/redo"
+  db_oradata: "/U04/{{ oracle_sid }}/oradata"
+  db_bct: "/U04/{{ oracle_sid }}/changetracking"  
+  db_arch1: "/U05/{{ oracle_sid }}/archivelog_dest_1"
+  db_arch2: "/U06/{{ oracle_sid }}/archivelog_dest_2"
+  db_exp: "/Export/{{ oracle_sid }}/export"
+  db_fra: "/Fast_Recovery/{{ oracle_sid }}/CONTROLFILE"
+
+cloud_role:
+  - DEV
+  - PROD
+  - LAB
+
+db_size:
+  NORMAL:
+    redo_size_kb: 4194304
+  SMALL:
+    redo_size_kb: 524288
+
+db_charset:
+  STD:
+    recyclebin: "on"
+    characterSet: AL32UTF8
+    nationalCharacterSet: AL16UTF16
+  UTF8:
+    recyclebin: "off"
+    characterSet: UTF8
+    nationalCharacterSet: UTF8
+
+cloud_db_fs:
+  - /U01
+  - /U02
+  - /U03
+  - /U04
+  - /U05
+  - /U06
+  - /Fast_Recovery
+  - /Export
+  
+dbadmin: 
+  - admin_username1
+  - admin_username2
+  - admin_username3
+
+snmp_pw: "{% if srvrole == 'PROD' %}NotThePassword{% else %}QANotThePassword{% endif %}"
+emsys_pw: "{% if srvrole == 'PROD' %}NotThePassword{% else %}QANotThePassword{% endif %}"
+
+os_alloc_percent: "{% if ansible_memtotal_mb <= 5 * 1024 %}
+0.5
+{% elif ansible_memtotal_mb <= 7 * 1024 %}
+0.6
+{% elif ansible_memtotal_mb <= 9 * 1024 %}
+0.62
+{% elif ansible_memtotal_mb <= 13 * 1024 %}
+0.67
+{% elif ansible_memtotal_mb <= 19 * 1024 %}
+0.75
+{% elif ansible_memtotal_mb <= 23 * 1024 %}
+0.81
+{% elif ansible_memtotal_mb <= 27 * 1024 %}
+0.84
+{% elif ansible_memtotal_mb <= 35 * 1024 %}
+0.87
+{% elif ansible_memtotal_mb <= 69 * 1024 %}
+0.9
+{% elif ansible_memtotal_mb > 69 * 1024 %}
+0.93
+{% else %}
+{% endif %}"
+
+mem_kb: "{{ ansible_memtotal_mb|int * 1024 }}"
+nr_pages: "{{ (ansible_memtotal_mb|int * 1024 * mod|float) /4096 }}"
+pages: "{{ (ansible_memtotal_mb|int * 1024 * mod|float) }}"
+hugepages: "{{ (ansible_memtotal_mb|int * mod|float * 0.805) /2048 }}"
+memlock: "{{ (ansible_memtotal_mb|int * mod|float) }}"
+shmall: "{% if nr_pages|int < 2097152 %}2097152{% else %}{{ nr_pages }}{% endif %}"
+shmmax: "{% if pages|int < 536870912 %}536870912{% else %}{{ pages }}{% endif %}"
+
+cli_home_dir: /home/oracle
+cli_app_dir: "{{ cli_install_loc }}/apps"
+cli_base_dir: "{{ cli_install_loc }}/apps/oracle"
+cli_bin_dir: "{{ cli_install_loc }}/apps/oracle/product"
+cli_inv_dir: "{{ cli_install_loc }}/apps/oraInventory"
+rhel8_cli_psu_dir: "{{ cli_base_dir }}/RHEL8_RDBMS_DNC"
+cli_latestpsu_dir: "{{ cli_base_dir }}/Latest"
+cli_otherpatch_dir: "{{ cli_base_dir }}/Other_Patches"
+
+dbclients:
+  - ora_sid: "{{ oracle_sid }}"
+    ora_fqdn: "{{ oracle_fqdn }}"
+    
+ora_path: "/usr/local/bin:/usr/local/sbin:/usr/sbin:/bin:/usr/bin:/sbin:/U01/app/oracle/product/Agent13c/agent_inst/bin:/U01/app/oracle/product/Agent12c/agent_inst/bin"
+
+oracle_db:
+  20C:
+    path: "20.0.0"
+    artifactory_path: "20C"
+    db_bin:
+        - LINUX.X64_20c_not_released_yet.zip
+    opatch_bin:
+        - p6880880_200000_Linux-x86-64-blah.zip
+    home: OraDB20c_Home1
+    compatible: "20.0.0"
+    template:   "20.0.0.0.0"
+    installer_loc: "{{ ora_inst_dir.bin_dir }}/20.0.0/db_1" 
+    installer_parm: "-silent -waitforcompletion" 
+    installer_parm_rhel8: ""
+    stage_dir: "{{ ora_inst_dir.bin_dir }}/20.0.0/db_1" 
+    opatch_parm: "-local -silent -OH {{ ora_inst_dir.bin_dir }}/20.0.0/db_1"
+    psu_base_bin: ""
+    rhel8_base_bin: ""    
+  19C:
+    path: "19.0.0"
+    artifactory_path: "19C"
+    db_bin:
+        - LINUX.X64_193000_db_home.zip
+    opatch_bin:
+        - p6880880_190000_Linux-x86-64.zip
+    home: OraDB19c_Home1
+    compatible: "19.0.0"
+    template:   "19.0.0.0.0"
+    installer_loc: "{{ ora_inst_dir.bin_dir }}/19.0.0/db_1" 
+    installer_parm: "-silent -waitforcompletion" 
+    installer_parm_rhel8: "-applyRU {{ ora_tool_dir.swloc_dir }}/RHEL8_RDBMS_DNC/32126828/32218454 -applyOneOffs {{ ora_tool_dir.swloc_dir }}/RHEL8_RDBMS_DNC/32126828/32067171 -silent -waitforcompletion" 
+    stage_dir: "{{ ora_inst_dir.bin_dir }}/19.0.0/db_1" 
+    opatch_parm: "-local -silent -OH {{ ora_inst_dir.bin_dir }}/19.0.0/db_1"
+    psu_base_bin: "" 
+    rhel8_base_bin: 
+      - p32126828_190000_Linux-x86-64.zip
+  18C:
+    path: "18.0.0"
+    artifactory_path: "18C"
+    db_bin:
+        - LINUX.X64_180000_db_home.zip
+    opatch_bin:
+        - p6880880_180000_Linux-x86-64.zip
+    home: OraDB18c_Home1
+    compatible: "18.0.0"
+    template:   "18.0.0.0.0"
+    installer_loc: "{{ ora_inst_dir.bin_dir }}/18.0.0/db_1" 
+    installer_parm: "-silent -waitforcompletion"
+    installer_parm_rhel8: ""
+    stage_dir: "{{ ora_inst_dir.bin_dir }}/18.0.0/db_1" 
+    opatch_parm: "-local -silent -OH {{ ora_inst_dir.bin_dir }}/18.0.0/db_1"
+    psu_base_bin: ""
+    rhel8_base_bin: ""    
+  12CR2:
+    path: "12.2.0.1"
+    artifactory_path: "12201"
+    db_bin:
+        - linuxx64_12201_database.zip
+    opatch_bin:
+        - p6880880_122010_Linux-x86-64.zip
+    home: OraDB122_Home1
+    compatible: "12.2.0.1.0" 
+    template: "12.2.0.1.0" 
+    installer_loc: "{{ ora_tool_dir.bin_staged_dir }}" 
+    installer_parm: "-silent -showProgress -waitforcompletion -force"
+    installer_parm_rhel8: "" 
+    stage_dir: "{{ ora_tool_dir.swloc_dir }}"
+    opatch_parm: "-local -silent -OH {{ ora_inst_dir.bin_dir }}/12.2.0.1/db_1"
+    psu_base_bin: ""
+    rhel8_base_bin: ""    
+  12CR1:
+    path: "12.1.0.2"
+    artifactory_path: "12102"
+    db_bin:
+        - linuxamd64_12102_database_1of2.zip
+        - linuxamd64_12102_database_2of2.zip
+    opatch_bin:
+        - p6880880_121010_Linux-x86-64.zip
+    home: OraDB121_Home1
+    compatible: "12.1.0.2.0"
+    template: "12.1.0.2.0" 
+    installer_loc: "{{ ora_tool_dir.bin_staged_dir }}" 
+    installer_parm: "-silent -showProgress -waitforcompletion -force"
+    installer_parm_rhel8: ""   
+    stage_dir: "{{ ora_tool_dir.swloc_dir }}"    
+    opatch_parm: "-local -silent -OH {{ ora_inst_dir.bin_dir }}/12.1.0.2/db_1"
+    psu_base_bin: ""
+    rhel8_base_bin: ""
+  11G:
+    path: "11.2.0.4"
+    artifactory_path: "11204"
+    db_bin:
+        - p13390677_112040_Linux-x86-64_1of7.zip
+        - p13390677_112040_Linux-x86-64_2of7.zip
+    opatch_bin:
+        - p6880880_112000_Linux-x86-64.zip
+    home: OraDB11g_Home1
+    compatible: "11.2.0.4.0"
+    template: "11.2.0.4.0" 
+    installer_loc: "{{ ora_tool_dir.bin_staged_dir }}" 
+    installer_parm: "-ignorePrereq -silent -showProgress -waitforcompletion -force"
+    installer_parm_rhel8: "" 
+    stage_dir: "{{ ora_tool_dir.swloc_dir }}"
+    opatch_parm: "-local -silent -OH {{ ora_inst_dir.bin_dir }}/11.2.0.4/db_1 -ocmrf {{ ora_tool_dir.latestpsu_dir }}/ocm.rsp"
+    psu_base_bin:
+      - p19121551_112040_Linux-x86-64.zip
+    rhel8_base_bin: ""
+
+oracle_cli:
+  21C:
+    path: '20.0.0'
+    bin: 
+      - LINUX.X64_21c_not_released_yet.zip
+    home: OraClient21c_Home1
+    stage_dir: ""
+    installer_loc: "" 
+    installer_parm: ""
+    installer_parm_rhel8: ""
+  19C:
+    path: '19.0.0'
+    bin: 
+      - LINUX.X64_193000_client_home.zip
+    home: OraClient19c_Home1
+    stage_dir: "{{ cli_bin_dir }}/19.0.0/client_1" 
+    installer_loc: "{{ cli_bin_dir }}/19.0.0/client_1" 
+    installer_parm: '-silent -force -waitforcompletion'
+    installer_parm_rhel8: "-applyRU {{ rhel8_cli_psu_dir }}/32126828/32218454 -applyOneOffs {{ rhel8_cli_psu_dir }}/32126828/32067171 -silent -waitForCompletion"
+  18C:
+    path: '18.0.0'
+    bin: 
+      - LINUX.X64_181000_client.zip
+    home: OraClient18c_Home1
+    stage_dir: "{{ cli_base_dir }}"
+    installer_loc: "{{ cli_base_dir }}/client"
+    installer_parm: '-silent -force -waitforcompletion FROM_LOCATION={{ cli_base_dir }}/client/stage/products.xml'
+    installer_parm_rhel8: ""
+  12CR2:
+    path: '12.2.0.1'
+    bin: 
+      - linuxx64_12201_client.zip
+    home: OraClient122_Home1
+    stage_dir: "{{ cli_base_dir }}"
+    installer_loc: "{{ cli_base_dir }}/client"
+    installer_parm: '-silent -force -waitforcompletion FROM_LOCATION={{ cli_base_dir }}/client/stage/products.xml'
+    installer_parm_rhel8: ""
+  12CR1:
+    path: '12.1.0.2'
+    bin: 
+      - linuxamd64_12102_client.zip
+    home: OraClient121_Home1
+    stage_dir: "{{ cli_base_dir }}"
+    installer_loc: "{{ cli_base_dir }}/client"
+    installer_parm: '-silent -force -waitforcompletion FROM_LOCATION={{ cli_base_dir }}/client/stage/products.xml'
+    installer_parm_rhel8: ""
+  11G:
+    path: '11.2.0.4'
+    bin: 
+      - p13390677_112040_Linux-x86-64_4of7.zip
+    home: OraClient11g_Home1
+    stage_dir: "{{ cli_base_dir }}"
+    installer_loc: "{{ cli_base_dir }}/client"
+    installer_parm: '-silent -force -waitforcompletion FROM_LOCATION={{ cli_base_dir }}/client/stage/products.xml'
+    installer_parm_rhel8: ""

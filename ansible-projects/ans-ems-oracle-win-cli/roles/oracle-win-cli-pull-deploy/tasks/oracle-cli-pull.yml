@@ -1,0 +1,73 @@
+# Author: KIroha
+# ansible-win-oracle-cli
+# Pull Oracle Binary
+---
+  - name: HTTP Proxy Test
+    win_get_url:
+      url: "{{ v_http_proxy }}"
+      dest: "{{ ora_pull_dir }}"
+      force: True
+      timeout: 120
+    register: http_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ http_output.status_code }}"
+
+  - name: HTTPS Proxy Test
+    win_get_url:
+      url: "{{ v_https_proxy }}"
+      dest: "{{ ora_pull_dir }}"
+      force: True
+      timeout: 120
+    register: https_output
+    ignore_errors: yes
+  - debug:
+      msg: "{{ https_output.status_code }}"
+      
+  - set_fact:
+      artifactory_url: "{{ v_https_proxy }}/{{ oracle_cli_artifactory }}"
+    when: https_output.status_code == 200
+  - set_fact:
+      artifactory_url: "{{ v_http_proxy }}/{{ oracle_cli_artifactory }}"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code == 200 )
+  - debug:
+      msg: "The selected Artifactory URL is: {{ artifactory_url }}"
+  - debug:
+      msg: "Could not connect to {{ artifactory_dc }} http or https artifactory proxy"
+    when: ( https_output.status_code != 200 ) and ( http_output.status_code != 200 )    
+
+  - name: Pull Oracle Windows Client Binary
+    win_get_url:
+      dest: "{{ ora_pull_dir }}"
+      url: "{{ artifactory_url }}/{{ ora_cli_binary }}"
+      force: True
+    tags:
+      - pull-dbclient-binary
+
+  - name: "Unzipping {{ ora_cli_binary }} to {{ ora_stage_dir }}"
+    win_unzip:
+      src: '{{ ora_pull_dir }}\{{ ora_cli_binary }}'
+      dest: '{{ ora_stage_dir }}'
+    tags:
+      - stage-dbclient-binary     
+
+  - name: Pull Oracle SQL Developer Client Binary
+    win_get_url:
+      dest: "{{ ora_pull_dir }}"
+      url: "{{ artifactory_url }}/SQL_Developer/sqldeveloper.zip"
+      force: True
+    ignore_errors: yes
+    tags:
+      - pull-dbclient-binary
+
+  - name: Find SQL Developer
+    win_find: paths="{{ ora_pull_dir }}" patterns="sqldeveloper*.zip"
+    register: find_sqldev
+    ignore_errors: yes
+  - name: "Unzipping SQL Developer to {{ oracle_app_dir }}"
+    win_unzip:
+      src: "{{ item.path }}"
+      dest: "{{ oracle_app_dir }}"
+      remote_src: yes
+    with_items: "{{ find_sqldev.files }}"   
+    ignore_errors: yes    

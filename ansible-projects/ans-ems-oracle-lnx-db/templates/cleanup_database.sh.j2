@@ -1,0 +1,82 @@
+#!/bin/bash
+#KI Drop database and cleanup data file directories
+#KI Removed software removal, this will go in a seperate software cleanup script
+
+export ORACLE_SID={{ oracle_sid }}
+export VERSION={{ oracle_version }}
+export SYSPASS="Pain\$Gain\$C0dex"
+export DATE=`/bin/date '+%Y-%m-%d_%H:%M'`
+export LOGFILE=/tmp/Cleanup_Build_${DATE}.log
+exec > >(tee -a $LOGFILE)
+
+## check os user is oracle
+WHOAMI=`whoami`
+if [ $WHOAMI != "oracle" ]; then
+    echo $0: Should run as the oracle user
+    exit 1
+fi
+
+## Check parameters
+if [ -z $ORACLE_SID ] | [ -z $VERSION ] && [[ ! $VERSION =~ ^(11G|12CR1|12CR2|18C|19C)$ ]];
+    then
+    echo Usage: $0 "<ORACLE_SID> <11G|12CR1|12CR2|18C|19C> "
+    echo This cleanup script will removed the specified database and its backups!
+    exit 1
+fi
+
+# Set ORACLE_HOME
+if [[ $VERSION == "11G" ]];
+    then DB_HOME="/U01/app/oracle/product/11.2.0.4/db_1"
+elif [[ $VERSION == "12CR1" ]];
+    then DB_HOME="/U01/app/oracle/product/12.1.0.2/db_1" 
+elif [[ $VERSION == "12CR2" ]];
+    then DB_HOME="/U01/app/oracle/product/12.2.0.1/db_1"    
+elif [[ $VERSION == "18C" ]];
+    then DB_HOME="/U01/app/oracle/product/18.0.0/db_1"
+elif [[ $VERSION == "19C" ]];
+    then DB_HOME="/U01/app/oracle/product/19.0.0/db_1"
+fi 
+
+export ORACLE_HOME=$DB_HOME
+
+if [ ! -d $ORACLE_HOME ];
+then  
+    echo "Oracle Home not found!"
+    exit 1
+fi
+
+## Cleanup database
+echo ++++++++++++++++++++++++++++++++++++
+echo   Dropping database please wait
+echo   LOGFILE Is: $LOGFILE
+echo ++++++++++++++++++++++++++++++++++++
+${ORACLE_HOME}/bin/lsnrctl stop
+${ORACLE_HOME}/bin/dbca -silent -deleteDatabase -sourceDB ${ORACLE_SID} -sysDBAUserName SYS -sysDBAPassword ${SYSPASS}
+
+#echo ++++++++++++
+#echo Removing AHF
+#echo ++++++++++++
+#/Export/staging/DBA_TOOLS/AHF/oracle.ahf/ahf/bin/uninstallahf.sh -local -silent -deleterepo
+#find /tmp -maxdepth 1 -name "oracle.ahf" -ls -exec rm -rfv {} \;
+#find /Export/staging -maxdepth 1 -name "DBA_TOOLS" -ls -exec rm -rf {} \;
+
+echo ++++++++++++++++++++++++++++++++
+echo cleaning DB datafile directories
+echo ++++++++++++++++++++++++++++++++
+find /U01 -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /U02 -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /U03 -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /U04 -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /U05 -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /U06 -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /Fast_Recovery -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /Export -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+find /$ORACLE_HOME/dbs -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm {} \;
+find /$ORACLE_HOME/network/admin -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm {} \;
+find /$ORACLE_HOME/network/admin -maxdepth 1 -name "*.ora" -ls -exec rm {} \;
+find /Export -maxdepth 1 -name "*${ORACLE_SID}*" -ls -exec rm -rfv {} \;
+rm -rf /Export/staging/Oracle_Binary/database/
+
+echo Backing up crontab to /tmp
+crontab -l > /tmp/$(date +%Y%m%d).crontab
+echo " " | crontab -

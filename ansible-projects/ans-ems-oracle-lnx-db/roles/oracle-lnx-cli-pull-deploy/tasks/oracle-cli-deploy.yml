@@ -1,0 +1,133 @@
+# Author: KIroha
+# ans-ems-oracle-lnx-cli
+# Deploy Oracle 11G-20C Client 
+---
+  - name: "Check {{ cli_bin_dir }} exists"
+    stat:
+      path: "{{ cli_bin_dir }}"
+    register: cli_bin_dir_chk
+  - debug:
+      msg: "{{ cli_bin_dir }} does not exist"
+    when: cli_bin_dir_chk.stat.isdir == False
+    tags:
+      - deploy-dbclient-binary
+
+  - name: "Check {{ cli_inv_dir }} exists"
+    stat:
+      path: "{{ cli_inv_dir }}"
+    register: cli_inv_dir_chk
+  - debug:
+      msg: "{{ cli_inv_dir_chk }} does not exist"
+    when: cli_inv_dir_chk.stat.isdir == False
+    tags:
+      - deploy-dbclient-binary
+
+  - name: "Checking if Oracle Client {{ ora_cli_version }} installation exists already"
+    stat:
+      path: "{{ cli_bin_dir }}/{{ ora_cli_version }}/client_1/bin/sqlplus"
+    register: oracle_cfgtool_chk
+
+  - name: "Installing Oracle Client {{ oracle_version }} Software"
+    become_user: "{{ oracle_owner }}"
+    shell: 
+      cmd: |
+        unset ORACLE_HOME
+        unset ORACLE_BASE
+        unset ORACLE_SID
+        unset TNS_ADMIN
+        {{ ora_cli_installer }}/runInstaller {{ ora_cli_sw_parm }} -responseFile {{ cli_base_dir }}/cli-sw-install.rsp
+    args:
+      executable: /bin/sh  
+    register: db_cli_install_res
+    when:
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] != "8"
+    changed_when: db_cli_install_res.rc == 0
+    failed_when: "(db_cli_install_res.stdout_lines is not defined) or ('Successfully Setup Software.' not in db_cli_install_res.stdout_lines)"
+
+  - name: "Installing Oracle Client {{ oracle_version }} Software on RHEL8"
+    become_user: "{{ oracle_owner }}"
+    shell: 
+      cmd: |
+        unset ORACLE_HOME
+        unset ORACLE_BASE
+        unset ORACLE_SID
+        unset TNS_ADMIN
+        export CV_ASSUME_DISTID=OL7
+        {{ ora_cli_installer }}/runInstaller {{ ora_cli_sw_parm_rhel8 }} -responseFile {{ cli_base_dir }}/cli-sw-install.rsp
+    args:
+      executable: /bin/sh  
+    register: db_cli_install_res_rh8
+    when:
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - oracle_version == '19C'
+    changed_when: db_cli_install_res_rh8.rc == 0
+    failed_when: "(db_cli_install_res_rh8.stdout_lines is not defined) or ('Successfully Setup Software.' not in db_cli_install_res_rh8.stdout_lines)"
+    ignore_errors: yes # display error about ignored failure below    
+  - debug:
+        msg: 
+          - "On RHEL8, Linux RPM compat-libcap1-1.10 is deprecated and not available"
+          - "The following error can be ignored if the only missing rpm is:  compat-libcap1-1.10"
+          - "Error: [INS-13014] Target environment does not meet some optional requirements"
+          - "Install Log location: /U01/app/oraInventory/logs/InstallActions*/installActions*.log"
+    when:
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - oracle_version == '19C'
+
+  - name: Create Oracle tnsname
+    become_user: "{{ oracle_owner }}"
+    template:
+      dest: "{{ cli_bin_dir }}/{{ ora_cli_version }}/client_1/network/admin/tnsnames.ora"
+      src: cli-tnsname.j2
+      force: yes
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0644
+      backup: yes
+    tags:
+      - deploy-dbclient-binary
+
+  - stat:
+      path: "{{ cli_bin_dir }}/{{ ora_cli_version }}/client_1/network/admin/tnsnames.ora"
+    register: oracle_tnsname_chk
+
+  - name: "Removing {{ cli_base_dir }}/client"
+    file:
+      path: "{{ cli_base_dir }}/client"
+      state: absent
+    when: oracle_tnsname_chk.stat.exists
+    tags: deploy-dbclient-binary
+
+  - debug: 
+      msg: "Removing downloaded binaries"
+  - file:
+      path: "{{ cli_base_dir }}/{{ item }}"
+      state: absent
+    loop: "{{ ora_cli_binary }}"
+    when: oracle_tnsname_chk.stat.exists
+  - file:
+      path: "{{ cli_base_dir }}/{{ item }}"
+      state: absent
+    loop: "{{ ora_opatch_binary }}"
+    when: oracle_tnsname_chk.stat.exists      
+  - file:
+      path: "{{ cli_base_dir }}/index.html"
+      state: absent
+    when: oracle_tnsname_chk.stat.exists
+  - file:
+      path: "{{ cli_base_dir }}/Latest"
+      state: absent
+    when: oracle_tnsname_chk.stat.exists
+  - file:
+      path: "{{ cli_base_dir }}/RHEL8_CLIENT_DNC"
+      state: absent
+  - file:
+      path: "{{ cli_base_dir }}/RHEL8_RDBMS_DNC"
+      state: absent      
+    when: oracle_tnsname_chk.stat.exists
+  - file:
+      path: "{{ cli_base_dir }}/cli-sw-install.rsp"
+      state: absent
+    when: oracle_tnsname_chk.stat.exists    

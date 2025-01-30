@@ -1,0 +1,10 @@
+# Author: Kezie Iroha
+# Ansible Tower Playbook for oracle-lnx-dbtool-pull-deploy
+---
+- hosts: "{{ v_host }}"
+  become: yes
+  roles:
+    - role: oracle-lnx-dbtool-pull-deploy
+  #vars:
+  #  # specify cloud artifactory proxy data centre: LIT (NA), AM3 (EU)
+  #  artifactory_dc: LIT 

@@ -1,0 +1,36 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+---
+  - name: Common Vars
+    include_role:
+      name: common
+      public: yes
+      defaults_from: main.yml
+
+  - name: Facts
+    include_tasks:
+      file: oracle-tool-fact.yml
+   
+  - name: Configure Oracle Tools Env
+    include_tasks:
+      file: oracle-tool-env.yml
+    when: artifactory_dc is defined 
+    tags: config_env
+
+  - name: Pull Oracle Tools Software
+    include_tasks:
+      file: oracle-tool-pull.yml
+    when: artifactory_dc is defined 
+    tags: pull_sw  
+
+  - name: Stage Oracle Tools Software
+    include_tasks:
+      file: oracle-tool-stage.yml
+    when: artifactory_dc is defined 
+    tags: stage_sw   
+
+  - name: Deploy Oracle Tools Software
+    include_tasks:
+      file: oracle-tool-deploy.yml
+    when: artifactory_dc is defined 
+    tags: deploy_sw

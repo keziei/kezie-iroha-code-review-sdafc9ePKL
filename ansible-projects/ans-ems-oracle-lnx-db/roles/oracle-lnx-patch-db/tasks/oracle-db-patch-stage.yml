@@ -1,0 +1,100 @@
+# Author: Kezie Iroha
+# oracle-lnx-patch-db
+# Stage Oracle PSU Software
+---
+  - name: "Pre Stage Opatch Binary: {{ ora_opatch_binary }} in Oracle Home: {{ oracle_home }}"
+    unarchive:
+      src: "{{ ora_tool_dir.swloc_dir }}/{{ item }}"
+      dest: "{{ oracle_home }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    loop: "{{ ora_opatch_binary }}"
+    register: pre_update_opatch_chk
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - (oracle_version == '19C') or (oracle_version == '18C')
+
+  - name: Find AHF
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="AHF*.zip"
+    register: find_ahf
+  - name: "Unzipping AHF to {{ ora_tool_dir.ahf_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.ahf_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_ahf.files }}"
+
+  - name: Find RDA
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="p21769913*.zip"
+    register: find_rda
+  - name: "Unzipping RDA to {{ ora_tool_dir.rda_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.rda_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_rda.files }}"
+
+  - name: Find SQLHC
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="sqlhc*.zip"
+    register: find_sqlhc
+  - name: "Unzipping SQLHC to {{ ora_tool_dir.sqlhc_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.sqlhc_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_sqlhc.files }}"
+
+  - name: Find Latest PSU
+    find: paths="{{ ora_tool_dir.latestpsu_dir }}" patterns="*.zip"
+    register: find_latest_psu
+  - name: "Unzipping Latest PSU to {{ ora_tool_dir.latestpsu_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.latestpsu_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_latest_psu.files }}"
+
+  - name: Find Other Patches
+    find: paths="{{ ora_tool_dir.otherpatch_dir }}" patterns="*.zip"
+    register: find_other_patches
+  - name: "Unzipping Other Patches to {{ ora_tool_dir.otherpatch_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.otherpatch_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_other_patches.files }}"
+
+  - name: Find RHEL8 Patches
+    find: paths="{{ ora_tool_dir.rhel8_db_psu_dir }}" patterns="*.zip"
+    register: find_rhel8_db_patches
+  - name: "Unzipping Other Patches to {{ ora_tool_dir.rhel8_db_psu_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.rhel8_db_psu_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_rhel8_db_patches.files }}"    
+    when:     
+      - ansible_facts['distribution'] == "RedHat"
+      - ansible_facts['distribution_major_version'] == "8"
+      - oracle_version in ['19C'] 

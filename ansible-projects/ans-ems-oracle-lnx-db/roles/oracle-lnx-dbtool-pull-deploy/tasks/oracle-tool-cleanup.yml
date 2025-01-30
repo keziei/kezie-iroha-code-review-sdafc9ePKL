@@ -1,0 +1,14 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+# Cleanup database configuration
+---
+  - name: "Remove AHF"
+    become_user: "{{ oracle_owner }}"
+    shell: "{{ ora_tool_dir.ahf_dir }}/oracle.ahf/ahf/bin/uninstallahf.sh -local -silent -deleterepo"
+    args:
+      executable: /bin/sh
+    register: ahf_drop
+    ignore_errors: yes 
+  - debug:
+      msg: "{{ ahf_drop.stdout_lines }}" 
+    ignore_errors: yes   

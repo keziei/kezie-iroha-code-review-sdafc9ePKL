@@ -1,0 +1,36 @@
+{% if oracle_version_rem == '19C' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v19.0.0
+{% elif oracle_version_rem == '18C' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v18.0.0
+{% elif oracle_version_rem == '12CR2' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v12.2.0
+{% elif oracle_version_rem == '12CR1' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v12.1.0
+{% elif oracle_version_rem == '11G' %}
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v11_2_0
+{% else %}
+{% endif %}
+{% if oracle_version_rem in ['11G','12CR1','12CR2','18C'] %}
+ORACLE_HOME={{ oracle_home }}
+{% else %}
+{% endif %}
+ORACLE_BASE={{ oracle_base }}
+{% if oracle_version_rem in ['11G','12CR1','12CR2'] %}
+INVENTORY_LOCATION={{ oracle_inv_dir }}
+{% elif oracle_version_rem in ['18C','19C'] %}
+INVENTORY_LOCATION=C:\Program Files\Oracle\Inventory
+{% else %}
+{% endif %}
+{% if oracle_version_rem in ['11G','12CR1','12CR2','18C'] %}
+oracle.install.client.installType=Administrator
+{% else %}
+{% endif %}
+{% if oracle_version_rem in ['12CR1','12CR2','18C','19C'] %}
+oracle.install.IsBuiltInAccount=true
+{% else %}
+{% endif %}
+{% if oracle_version_rem in ['11G'] %}
+oracle.install.client.upgrading=false
+oracle.installer.autoupdates.option=SKIP_UPDATES
+{% else %}
+{% endif %}

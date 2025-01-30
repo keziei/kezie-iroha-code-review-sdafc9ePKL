@@ -1,0 +1,44 @@
+# Author: Kezie Iroha
+# oracle-lnx-dbtool-pull-deploy
+# Stage Oracle Database Software
+---
+  - name: Find AHF
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="AHF*.zip"
+    register: find_ahf
+  - name: "Unzipping AHF to {{ ora_tool_dir.ahf_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.ahf_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_ahf.files }}"
+
+  - name: Find RDA
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="p21769913*.zip"
+    register: find_rda
+  - name: "Unzipping RDA to {{ ora_tool_dir.rda_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.rda_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_rda.files }}"
+
+  - name: Find SQLHC
+    find: paths="{{ ora_tool_dir.swloc_dir }}" patterns="sqlhc*.zip"
+    register: find_sqlhc
+  - name: "Unzipping SQLHC to {{ ora_tool_dir.sqlhc_dir }}"
+    unarchive:
+      src: "{{ item.path }}"
+      dest: "{{ ora_tool_dir.sqlhc_dir }}"
+      owner: "{{ oracle_owner }}"
+      group: "{{ oracle_group }}"
+      mode: 0755
+      remote_src: yes
+    with_items: "{{ find_sqlhc.files }}"
+
+  

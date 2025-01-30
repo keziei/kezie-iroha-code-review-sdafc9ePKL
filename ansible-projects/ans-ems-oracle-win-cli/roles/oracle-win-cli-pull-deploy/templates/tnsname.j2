@@ -1,0 +1,14 @@
+# Tnsname created by Ansible
+{% for db in dbclients %}
+{{ db.ora_sid }} =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = {{ db.ora_fqdn }})(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SERVICE_NAME = {{ db.ora_sid }})
+    )
+  )
+
+{% endfor %}
+
