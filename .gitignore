@@ -8,3 +8,4 @@
 # Ignore Terraform plan files
 *.tfplan
 
+.DS_Store
